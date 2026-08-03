@@ -1,0 +1,177 @@
+/* ===== 统一字体体系 ===== */
+:root {
+  --primary-color: #4f46e5;
+  --bg-gradient-start: #667eea;
+  --bg-gradient-end: #764ba2;
+
+  /* 字号层级 — 最小 11px，禁止使用 9px/10px */
+  --font-xs:   11px;   /* 角标、极端紧凑标签 */
+  --font-sm:   12px;   /* 提示文字、图例、信息行 */
+  --font-md:   13px;   /* 正文、表单标签 */
+  --font-base: 14px;   /* 默认正文、导航项、面板标题 */
+  --font-lg:   15px;   /* 副标题、用户名 */
+  --font-xl:   16px;   /* 卡片标题、按钮 */
+  --font-2xl:  18px;   /* 页面标题、大数字 */
+  --font-3xl:  22px;   /* 登录页标题、hero */
+  --font-4xl:  24px;   /* 头像首字母 */
+
+  --text-primary:   #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted:     #9ca3af;
+  --text-tertiary:  #9ca3af;
+
+  /* 背景与边框 */
+  --bg-main:     #f9fafb;
+  --bg-hover:    #f1f5f9;
+  --border:      #e5e7eb;
+
+  /* 主题色 */
+  --color-primary:       #3b82f6;
+  --color-primary-light: #eff6ff;
+
+  /* Element Plus 主题色覆盖 → 蓝色 #3b82f6 */
+  --el-color-primary:          #3b82f6;
+  --el-color-primary-light-3:  #62a8fa;
+  --el-color-primary-light-5:  #93c5fd;
+  --el-color-primary-light-7:  #bfdbfe;
+  --el-color-primary-light-8:  #dbeafe;
+  --el-color-primary-light-9:  #eff6ff;
+  --el-color-primary-dark-2:   #2563eb;
+
+  --line-height-base: 1.5;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* 全局数字优化：等宽数字 + 现代齐线数字，避免 6/9/0 混淆 */
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+#app {
+  width: 100%;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* Element Plus 全局字体对齐 */
+.el-button {
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+.el-input__inner,
+.el-textarea__inner,
+.el-select .el-input__inner {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* ===== 按钮层级体系 ===== */
+
+/* 输入框统一美化：圆角 8px，hover/聚焦蓝色边框 + 2px 柔和阴影 */
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: 8px !important;
+  transition: box-shadow 0.2s ease;
+}
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+.el-input__wrapper.is-focus,
+.el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset, 0 2px 12px rgba(59, 130, 246, 0.15) !important;
+}
+/* placeholder 浅灰 + 小字号 */
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
+/* 主按钮：填充蓝色、白色文字、hover 加深（Element Plus --el-color-primary 已覆盖为 #3b82f6） */
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background-color: var(--el-color-primary-dark-2);
+  border-color: var(--el-color-primary-dark-2);
+}
+
+/* 次按钮：白底 + 蓝色边框 + 蓝色文字，hover 浅蓝背景 */
+.el-button.btn-secondary {
+  background: #ffffff;
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+.el-button.btn-secondary:hover,
+.el-button.btn-secondary:focus {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+.el-button.btn-secondary.is-loading {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+/* 快捷按钮：默认浅灰边框，选中填充浅蓝 */
+.el-button.btn-quick {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+.el-button.btn-quick:hover {
+  border-color: #93c5fd;
+  color: var(--el-color-primary);
+  background: #ffffff;
+}
+.el-button.btn-quick-active {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+.el-button.btn-quick-active:hover {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+/* ===== 数字字体优化 ===== */
+/* 专用数字字体栈：Segoe UI 数字清晰度远优于微软雅黑 */
+.num-font {
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'DIN', 'Roboto', 'SF Pro Display', Arial, sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* Element Plus 数字输入框：使用数字字体 */
+.el-input-number .el-input__inner {
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+/* Element Plus 表格单元格：数字等宽对齐 */
+.el-table .cell {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}

@@ -15,7 +15,7 @@ const routes = [
     path: '/attendance',
     name: 'Attendance',
     component: () => import('../views/AttendanceView.vue'),
-    meta: { title: '考勤打卡', requiresAuth: true }
+    meta: { title: '工时填报系统', requiresAuth: true }
   },
   {
     path: '/report',
@@ -56,7 +56,7 @@ const router = createRouter({
 
 // 全局前置守卫
 router.beforeEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} - MyTools` : 'MyTools'
+  document.title = to.meta.title ? `${to.meta.title} - timesheet-system` : 'timesheet-system'
   if (to.meta.requiresAuth) {
     const isLoggedIn = sessionStorage.getItem('isLogin') === 'true'
     if (!isLoggedIn) {

@@ -5,8 +5,8 @@
         <div class="logo-circle">
           <el-icon :size="32" color="#fff"><Clock /></el-icon>
         </div>
-        <h1>考勤系统</h1>
-        <p>MyTools Attendance System</p>
+        <h1>工时填报系统</h1>
+        <p>timesheet-system</p>
       </div>
 
       <el-form

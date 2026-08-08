@@ -5,6 +5,11 @@ export function getMonthTimesheets(year, month) {
   return request.get('/timesheet/month', { params: { year, month } })
 }
 
+/** 查询当年工时记录（用于热力图，返回 { "2026-01-01": {...}, ... } 的 Map） */
+export function getYearTimesheets(year) {
+  return request.get('/timesheet/year', { params: { year } })
+}
+
 /** 查询指定日期的工时记录 */
 export function getTimesheetByDate(date) {
   return request.get(`/timesheet/date/${date}`)

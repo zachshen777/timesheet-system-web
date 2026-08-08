@@ -8,28 +8,6 @@
         </div>
         <span class="top-title">工时填报中心</span>
       </div>
-      <div class="top-bar-center">
-        <div class="date-picker" @click="prevPeriod">
-          <el-icon><ArrowLeft /></el-icon>
-        </div>
-        <div class="date-display">
-          <template v-if="viewMode === 'week'">
-            <span class="date-week-range">{{ weekRangeText }}</span>
-          </template>
-          <template v-else>
-            <span class="date-year">{{ calYear }}年</span>
-            <span class="date-month">{{ calMonth }}月</span>
-          </template>
-        </div>
-        <div class="date-picker" @click="nextPeriod">
-          <el-icon><ArrowRight /></el-icon>
-        </div>
-        <el-button text size="small" class="today-btn" @click="goToday">今天</el-button>
-        <el-button-group class="view-switch">
-          <el-button :type="viewMode==='month'?'primary':'default'" :class="{'btn-secondary': viewMode !== 'month'}" size="14px" @click="switchToMonth">月视图</el-button>
-          <el-button :type="viewMode==='week'?'primary':'default'" :class="{'btn-secondary': viewMode !== 'week'}" size="14px" @click="switchToWeek">周视图</el-button>
-        </el-button-group>
-      </div>
       <div class="top-bar-right">
         <el-button class="btn-secondary" round size="small" :loading="exporting" @click="exportData">
           <el-icon><Download /></el-icon> 导出
@@ -44,16 +22,25 @@
       <div class="content-area">
         <div class="content-grid">
           <!-- 左栏：日历卡片 -->
-          <div class="panel calendar-panel">
-            <div class="cal-header">
-              <div class="cal-title">
-                <template v-if="viewMode === 'week'">{{ weekRangeText }} 工时日历</template>
-                <template v-else>{{ calYear }}年{{ calMonth }}月 工时日历</template>
+          <div class="panel calendar-panel">            <div class="cal-header">
+              <div class="cal-header-left">
+                <div class="cal-nav-btn" @click="prevPeriod"><el-icon><ArrowLeft /></el-icon></div>
+                <div class="cal-date-display">
+                  <template v-if="viewMode === 'week'">
+                    <span class="cal-week-range">{{ weekRangeText }}</span>
+                  </template>
+                  <template v-else>
+                    <span class="cal-year">{{ calYear }}年</span>
+                    <span class="cal-month">{{ calMonth }}月</span>
+                  </template>
+                </div>
+                <div class="cal-nav-btn" @click="nextPeriod"><el-icon><ArrowRight /></el-icon></div>
+                <el-button text size="small" class="cal-today-btn" @click="goToday">今天</el-button>
               </div>
-              <div class="cal-actions">
-                <div class="cal-nav-btn" @click="prevMonth"><el-icon><ArrowLeft /></el-icon></div>
-                <div class="cal-nav-btn" @click="nextMonth"><el-icon><ArrowRight /></el-icon></div>
-              </div>
+              <el-button-group class="view-switch">
+                <el-button :type="viewMode==='month'?'primary':'default'" :class="{'btn-secondary': viewMode !== 'month'}" size="14px" @click="switchToMonth">月视图</el-button>
+                <el-button :type="viewMode==='week'?'primary':'default'" :class="{'btn-secondary': viewMode !== 'week'}" size="14px" @click="switchToWeek">周视图</el-button>
+              </el-button-group>
             </div>
 
             <div class="cal-legend">
@@ -74,25 +61,32 @@
                 :key="w"
                 :class="['col-' + colTypeClass(idx), { 'col-rest': idx >= 5 }]"
               >{{ w }}</div>
-              <div
+              <el-tooltip
                 v-for="cell in calendarCells"
                 :key="cell.key"
-                class="cal-cell"
-                :class="[...cellClass(cell), 'col-' + colTypeClass(cell.colIndex), { 'cell-just-clicked': cellClickAnim === cell.key, 'is-copy-source': copyMode && copyMode.sourceDate === cell.dateStr }]"
-                @click="onCellClick($event, cell)"
+                :content="cellTooltip(cell)"
+                :disabled="!cell.day"
+                placement="top"
+                effect="dark"
+                :show-after="300"
               >
-                <span class="cell-num">{{ cell.day || '' }}</span>
-                <span v-if="cell.day" class="cell-info">
-                  <span v-if="cell.hours" class="cell-hours">{{ cell.hours }}h</span>
-                  <span v-if="cell.overtime" class="cell-overtime">+{{ cell.overtime }}h</span>
-                  <span v-if="cell.project" class="cell-content">{{ cell.project }}</span>
-                </span>
-                <span v-if="cell.isHoliday" class="cell-holiday-badge" :title="cell.holidayName">{{ cell.holidayName }}</span>
-                <span v-if="cell.isShift" class="cell-shift-badge" title="调班日">班</span>
-                <span v-if="cell.dayType === 'saturday' || cell.dayType === 'sunday'" class="cell-rest-badge" title="休息日">休</span>
-                <span v-if="cell.isToday" class="cell-today-dot"></span>
-                <span v-if="cell.isSelected" class="cell-selected-ring"></span>
-              </div>
+                <div
+                  class="cal-cell"
+                  :class="[...cellClass(cell), 'col-' + colTypeClass(cell.colIndex), { 'cell-just-clicked': cellClickAnim === cell.key, 'is-copy-source': copyMode && copyMode.sourceDate === cell.dateStr }]"
+                  @click="onCellClick($event, cell)"
+                >
+                  <span class="cell-num">{{ cell.day || '' }}</span>
+                  <span v-if="cell.day && (cell.hours || cell.overtime)" class="cell-info">
+                    <span v-if="cell.hours" class="cell-hours">{{ cell.hours }}h</span>
+                    <span v-if="cell.overtime" class="cell-overtime">+{{ cell.overtime }}h</span>
+                  </span>
+                  <span v-if="cell.isHoliday" class="cell-holiday-badge" :title="cell.holidayName">{{ cell.holidayName }}</span>
+                  <span v-if="cell.isShift" class="cell-shift-badge" title="调班日">班</span>
+                  <span v-if="cell.dayType === 'saturday' || cell.dayType === 'sunday'" class="cell-rest-badge" title="休息日">休</span>
+                  <span v-if="cell.isToday" class="cell-today-dot"></span>
+                  <span v-if="cell.isSelected" class="cell-selected-ring"></span>
+                </div>
+              </el-tooltip>
             </div>
 
             <div v-if="selectedDates.length > 1" class="batch-hint">
@@ -101,7 +95,8 @@
             </div>
           </div>
 
-          <!-- 右栏：工时填报表单卡片 -->
+          <!-- 右栏：工时填报 + 热力图 -->
+          <div class="right-column">
           <div class="panel ts-panel">
             <div class="panel-title-row">
               <div class="panel-title-left">
@@ -206,10 +201,93 @@
             </div>
             </transition>
           </div>
+
+          <!-- ==================== 热力图卡片 ==================== -->
+          <div class="panel heatmap-panel">
+          <div class="heatmap-header">
+            <div class="panel-title-left">
+              <span class="title-bar"></span>
+              <span>年度工时热力图</span>
+            </div>
+            <div class="heatmap-year-switch">
+              <div class="cal-nav-btn" @click="prevHeatYear"><el-icon><ArrowLeft /></el-icon></div>
+              <span class="heatmap-year-text">{{ heatYear }}</span>
+              <div class="cal-nav-btn" @click="nextHeatYear"><el-icon><ArrowRight /></el-icon></div>
+            </div>
+            <div class="heatmap-stats">
+              <span class="hm-stat"><strong>{{ yearStats.days }}</strong> 天填报</span>
+              <span class="hm-stat-sep">|</span>
+              <span class="hm-stat"><strong>{{ yearStats.hours }}</strong>h 标准</span>
+              <span class="hm-stat-sep">|</span>
+              <span class="hm-stat hm-stat-ot"><strong>{{ yearStats.overtime }}</strong>h 加班</span>
+            </div>
+            <div class="heatmap-hover-info" v-if="hoveredCell && hoveredCell.inYear">
+              <span class="hover-date">{{ hoveredCell.dateStr }}</span>
+              <template v-if="hoveredCell.total > 0">
+                <span class="hover-hours">{{ hoveredCell.work }}h</span>
+                <span class="hover-ot" v-if="hoveredCell.ot > 0">+{{ hoveredCell.ot }}h 加班</span>
+                <span class="hover-proj" v-if="hoveredCell.project">{{ hoveredCell.project }}</span>
+              </template>
+              <span v-else class="hover-empty">未填报</span>
+            </div>
+            <div class="heatmap-collapse-btn" @click="heatmapCollapsed = !heatmapCollapsed">
+              <el-icon><ArrowDown v-if="!heatmapCollapsed" /><ArrowUp v-else /></el-icon>
+              <span>{{ heatmapCollapsed ? '展开' : '收起' }}</span>
+            </div>
+          </div>
+
+          <div v-show="!heatmapCollapsed" class="heatmap-scroll">
+            <!-- 月份标签 -->
+            <div class="heatmap-months">
+              <div class="hm-day-label-spacer"></div>
+              <div class="hm-months-row">
+                <span v-for="ml in monthLabels" :key="ml.month"
+                  class="hm-month-label"
+                  :style="{ left: ml.offset + 'px' }">{{ ml.label }}</span>
+              </div>
+            </div>
+
+            <!-- 日标签 + 格子 -->
+            <div class="heatmap-body">
+              <div class="hm-day-labels">
+                <span class="hm-day-label"></span>
+                <span class="hm-day-label">一</span>
+                <span class="hm-day-label"></span>
+                <span class="hm-day-label">三</span>
+                <span class="hm-day-label"></span>
+                <span class="hm-day-label">五</span>
+                <span class="hm-day-label"></span>
+              </div>
+              <div class="hm-grid">
+                <div v-for="(week, wi) in heatWeeks" :key="wi" class="hm-week-col">
+                  <div v-for="(day, di) in week" :key="di"
+                    class="hm-cell"
+                    :class="{ 'out-year': !day.inYear, 'is-today': day.dateStr === todayStr }"
+                    :style="{ background: day.inYear ? heatColor(day.total) : 'transparent' }"
+                    @mouseenter="hoveredCell = day"
+                    @mouseleave="hoveredCell = null">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 图例 -->
+          <div v-show="!heatmapCollapsed" class="heatmap-legend">
+            <span class="hm-legend-text">少</span>
+            <span class="hm-legend-cell" style="background:#ebedf0"></span>
+            <span class="hm-legend-cell" style="background:#9be9a8"></span>
+            <span class="hm-legend-cell" style="background:#40c463"></span>
+            <span class="hm-legend-cell" style="background:#30a14e"></span>
+            <span class="hm-legend-cell" style="background:#216e39"></span>
+            <span class="hm-legend-text">多</span>
+          </div>
         </div>
+          </div>
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
@@ -217,11 +295,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Timer, ArrowLeft, ArrowRight, CopyDocument, Download,
+  Timer, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, CopyDocument, Download,
   Delete, Close, Loading
 } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
-import { getMonthTimesheets, saveTimesheet, batchSaveTimesheet, deleteTimesheet, batchDeleteTimesheet } from '../api/timesheet'
+import { getMonthTimesheets, getYearTimesheets, saveTimesheet, batchSaveTimesheet, deleteTimesheet, batchDeleteTimesheet } from '../api/timesheet'
 import { exportTimesheet } from '../api/report'
 import { getHolidays } from '../api/config'
 import AppSidebar from '../components/AppSidebar.vue'
@@ -242,7 +320,7 @@ const timesheetMap = ref({})
 const selectedDates = ref([])
 const cellClickAnim = ref('')
 const formKey = ref(0)
-const weekdays = ['一', '二', '三', '四', '五', '六', '日']
+const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 // ===== 复制-粘贴模式 =====
 const copyMode = ref(null) // { sourceDate, sourceLabel } 或 null
@@ -354,6 +432,7 @@ function buildWeekCells() {
       hours: ts?.workHours ? formatHours(ts.workHours) : '',
       overtime: ts?.overtimeHours ? formatHours(ts.overtimeHours) : '',
       project: ts?.project || '',
+      task: ts?.task || '',
       isToday: dateStr === todayStrLocal,
       isSelected: selectedDates.value.includes(dateStr)
     }
@@ -393,6 +472,7 @@ function buildMonthCells() {
       hours: ts?.workHours ? formatHours(ts.workHours) : '',
       overtime: ts?.overtimeHours ? formatHours(ts.overtimeHours) : '',
       project: ts?.project || '',
+      task: ts?.task || '',
       isToday: dateStr === todayStrLocal,
       isSelected: selectedDates.value.includes(dateStr)
     })
@@ -418,6 +498,24 @@ function cellClass(cell) {
     cell.isToday ? 'is-today' : '',
     cell.isSelected ? 'is-selected' : ''
   ]
+}
+
+function cellTooltip(cell) {
+  if (!cell.day) return ''
+  const [, m, d] = cell.dateStr.split('-')
+  const parts = [`${parseInt(m)}\u6708${parseInt(d)}\u65e5`]
+  if (cell.hours) {
+    let h = cell.hours + 'h'
+    if (cell.overtime) h += '+' + cell.overtime + 'h'
+    parts.push(h)
+  } else if (cell.overtime) {
+    parts.push('\u52a0\u73ed' + cell.overtime + 'h')
+  } else {
+    parts.push('\u5f85\u586b\u62a5')
+  }
+  if (cell.project) parts.push('\u9879\u76ee\uff1a' + cell.project)
+  if (cell.task) parts.push('\u4efb\u52a1\u63cf\u8ff0\uff1a' + cell.task)
+  return parts.join('\uff5c')
 }
 
 function formatHours(h) {
@@ -641,6 +739,11 @@ async function handleSave() {
     }
     await loadMonthTimesheets()
     loadFormForSelection()
+    // 如果保存的日期在当前热力图年份内，刷新热力图
+    const savedYear = parseInt(selectedDates.value[0]?.substring(0, 4))
+    if (savedYear === heatYear.value) {
+      loadYearTimesheets()
+    }
   } catch (err) {
     console.error('保存工时失败:', err)
   } finally {
@@ -663,6 +766,7 @@ async function handleDeleteTs() {
     }
     ElMessage.success('删除成功')
     await loadMonthTimesheets()
+    loadYearTimesheets()
     clearSelection()
   } catch (err) {
     if (err !== 'cancel') console.error('删除工时失败:', err)
@@ -775,7 +879,106 @@ async function handlePasteTo(targetDate) {
 
 // ===== 加载全部 =====
 async function loadAll() {
-  await Promise.all([loadMonthTimesheets(), loadHolidays()])
+  await Promise.all([loadMonthTimesheets(), loadHolidays(), loadYearTimesheets()])
+}
+
+// ===== 热力图 =====
+const heatYear = ref(new Date().getFullYear())
+const yearTsMap = ref({})
+const hoveredCell = ref(null)
+const heatmapCollapsed = ref(false)
+
+async function loadYearTimesheets() {
+  try {
+    const res = await getYearTimesheets(heatYear.value)
+    yearTsMap.value = res.data || {}
+  } catch (err) {
+    console.error('加载年度工时失败:', err)
+  }
+}
+
+function prevHeatYear() { heatYear.value-- }
+function nextHeatYear() { heatYear.value++ }
+
+// 构建 GitHub 风格热力图：列为周（日→六），共 ~53 列
+const CELL_SIZE = 13
+const CELL_GAP = 2
+const WEEK_W = CELL_SIZE + CELL_GAP
+
+const heatWeeks = computed(() => {
+  const y = heatYear.value
+  const jan1 = new Date(y, 0, 1)
+  // 对齐到该周的周日
+  const startDate = new Date(jan1)
+  startDate.setDate(jan1.getDate() - jan1.getDay())
+  const dec31 = new Date(y, 11, 31)
+  const weeks = []
+  const cur = new Date(startDate)
+  while (cur <= dec31) {
+    const week = []
+    for (let i = 0; i < 7; i++) {
+      const ds = formatDate(cur)
+      const inYear = cur.getFullYear() === y
+      const ts = inYear ? yearTsMap.value[ds] : null
+      const work = ts ? Number(ts.workHours || 0) : 0
+      const ot = ts ? Number(ts.overtimeHours || 0) : 0
+      week.push({
+        dateStr: ds,
+        inYear,
+        work,
+        ot,
+        total: work + ot,
+        project: ts?.project || ''
+      })
+      cur.setDate(cur.getDate() + 1)
+    }
+    weeks.push(week)
+  }
+  return weeks
+})
+
+// 月份标签（绝对定位偏移量，与格子列对齐）
+const monthLabels = computed(() => {
+  const y = heatYear.value
+  const jan1 = new Date(y, 0, 1)
+  const startDay = jan1.getDay()
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+  const result = []
+  let lastOffset = -100
+  for (let m = 0; m < 12; m++) {
+    const firstOfMonth = new Date(y, m, 1)
+    const diffDays = Math.round((firstOfMonth - jan1) / (1000 * 60 * 60 * 24))
+    const weekIndex = Math.floor((diffDays + startDay) / 7)
+    const absOffset = weekIndex * WEEK_W
+    if (absOffset - lastOffset >= 22 || result.length === 0) {
+      result.push({ month: m, label: monthNames[m], offset: absOffset })
+      lastOffset = absOffset
+    }
+  }
+  return result
+})
+
+// 年度统计
+const yearStats = computed(() => {
+  let days = 0, hours = 0, overtime = 0
+  Object.values(yearTsMap.value).forEach(ts => {
+    const wh = Number(ts.workHours || 0)
+    const oh = Number(ts.overtimeHours || 0)
+    if (wh > 0 || oh > 0) {
+      days++
+      hours += wh
+      overtime += oh
+    }
+  })
+  return { days, hours: formatHours(hours) || 0, overtime: formatHours(overtime) || 0 }
+})
+
+function heatColor(total) {
+  if (total <= 0) return '#ebedf0'
+  if (total <= 4) return '#9be9a8'
+  if (total <= 8) return '#40c463'
+  if (total <= 12) return '#30a14e'
+  return '#216e39'
 }
 
 // 日历状态变化时自动重新加载数据
@@ -784,12 +987,22 @@ watch([calYear, calMonth, weekOffset, viewMode], () => {
   if (copyMode.value) exitCopyMode()
 })
 
+// 热力图年份变化时重新加载
+watch(heatYear, () => {
+  loadYearTimesheets()
+})
+
 onMounted(async () => {
   if (!userStore.userInfo) {
     await userStore.fetchUserInfo()
     if (!userStore.isLogin) { router.push('/login'); return }
   }
   await loadAll()
+  // 自动选中今天，加载今日工时到填报表单
+  const todayStr = formatDate(new Date())
+  selectedDates.value = [todayStr]
+  formKey.value++
+  loadFormForSelection()
 })
 </script>
 
@@ -839,76 +1052,6 @@ onMounted(async () => {
   letter-spacing: 0.5px;
 }
 
-.top-bar-center {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.date-picker {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #6b7280;
-  transition: all 0.2s ease;
-}
-.date-picker:hover {
-  background: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
-  transform: scale(1.08);
-}
-.date-display {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  font-weight: 600;
-  color: #1f2937;
-  min-width: 100px;
-  justify-content: center;
-}
-.date-year {
-  font-size: 14px;
-  color: #6b7280;
-  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-.date-month {
-  font-size: 18px;
-  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-.date-week-range {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2937;
-  white-space: nowrap;
-  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-.today-btn {
-  margin-left: 4px;
-  color: var(--el-color-primary);
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-.today-btn:hover {
-  background: var(--el-color-primary-light-9);
-}
-
-.view-switch {
-  margin-left: 16px;
-}
-.view-switch .el-button {
-  transition: all 0.2s ease;
-}
-.view-switch .el-button:active {
-  transform: scale(0.95);
-}
-
 .top-bar-right {
   display: flex;
   align-items: center;
@@ -929,20 +1072,27 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  overflow: hidden;
+  overflow-y: auto;
   min-width: 0;
-  max-width: 1600px;
-  margin: 0 auto;
 }
 
 /* ==================== 横向双栏布局 ==================== */
 .content-grid {
-  display: grid;
-  grid-template-columns: minmax(636px, 1fr) 1.4fr;
+  display: flex;
   gap: 24px;
-  flex: 1;
-  min-height: 0;
-  align-items: start;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+.calendar-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.right-column {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
 }
 
 /* Panel 通用 */
@@ -1066,6 +1216,8 @@ onMounted(async () => {
 .ts-panel {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 表单切换过渡动画 */
@@ -1101,6 +1253,7 @@ onMounted(async () => {
   grid-template-columns: 7fr 3fr;
   gap: 0;
   padding: 0;
+  max-width: 600px;
 }
 
 .ts-form-left {
@@ -1239,13 +1392,54 @@ onMounted(async () => {
   border-bottom: 1px solid #f0f1f5;
   gap: 12px;
 }
-.cal-title {
+.cal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-date-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 90px;
+  justify-content: center;
+}
+.cal-year {
+  font-size: 14px;
+  color: #6b7280;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.cal-month {
   font-size: 18px;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.cal-week-range {
+  font-size: 15px;
   font-weight: 600;
   color: #1f2937;
   white-space: nowrap;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
-.cal-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cal-today-btn {
+  color: var(--el-color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.cal-today-btn:hover {
+  background: var(--el-color-primary-light-9);
+}
+.view-switch .el-button {
+  transition: all 0.2s ease;
+}
+.view-switch .el-button:active {
+  transform: scale(0.95);
+}
 .cal-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1316,12 +1510,12 @@ onMounted(async () => {
 }
 .lg-overtime .dot { background: #f97316; }
 
-/* 待填报 — 琥珀色（对应工作日待填报格子 #fffbeb） */
+/* 待填报 — 灰色（对应工作日待填报空白格子） */
 .lg-pending {
-  color: #b45309;
-  background: #fffbeb;
+  color: #9ca3af;
+  background: #f3f4f6;
 }
-.lg-pending .dot { background: #f59e0b; }
+.lg-pending .dot { background: #d1d5db; }
 
 /* 今日 — 蓝色环（对应日历今日蓝色描边） */
 .lg-today {
@@ -1438,9 +1632,9 @@ onMounted(async () => {
 }
 .cal-cell.daytype-shift .cell-num { color: #6d28d9; font-weight: 700; }
 
-/* 待填报状态与列底色合并 — 工作日待填报加轻微橙色预警 */
+/* 待填报状态与列底色合并 — 工作日待填报空白 */
 .cal-cell.st-pending { color: #9ca3af; }
-.cal-cell.daytype-workday.st-pending { background: #fffbeb; }
+.cal-cell.daytype-workday.st-pending { background: #ffffff; }
 .cal-cell.daytype-saturday.st-pending { background: #f0fdf4; }
 .cal-cell.daytype-sunday.st-pending { background: #f0fdf4; }
 .cal-cell.daytype-holiday.st-pending { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%); }
@@ -1511,8 +1705,8 @@ onMounted(async () => {
 }
 .cell-info {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: baseline;
   gap: 1px;
   font-size: 12px;
   color: inherit;
@@ -1528,7 +1722,6 @@ onMounted(async () => {
   font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.cell-content { font-size: 12px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 点击动画 */
 .cell-just-clicked {
@@ -1667,5 +1860,219 @@ onMounted(async () => {
 }
 :deep(.el-button.is-round) {
   border-radius: 20px;
+}
+
+/* ==================== 热力图卡片 ==================== */
+.heatmap-panel {
+  flex-shrink: 0;
+  padding: 16px 20px 14px;
+}
+.heatmap-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f0f1f5;
+  flex-wrap: wrap;
+}
+.heatmap-year-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.heatmap-year-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
+}
+.heatmap-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+}
+.hm-stat strong {
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
+}
+.hm-stat-ot strong {
+  color: #f97316;
+}
+.hm-stat-sep {
+  color: #e5e7eb;
+}
+.heatmap-hover-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+  background: #f9fafb;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid #f0f1f5;
+}
+.hover-date {
+  font-weight: 600;
+  color: #1f2937;
+  font-variant-numeric: tabular-nums;
+}
+.hover-hours {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+.hover-ot {
+  color: #f97316;
+  font-weight: 600;
+}
+.hover-proj {
+  color: #6b7280;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hover-empty {
+  color: #9ca3af;
+}
+
+.heatmap-collapse-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.heatmap-collapse-btn:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.heatmap-scroll {
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+}
+.heatmap-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.heatmap-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+/* 月份标签 */
+.heatmap-months {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+.hm-day-label-spacer {
+  width: 24px;
+  flex-shrink: 0;
+}
+.hm-months-row {
+  position: relative;
+  height: 18px;
+  flex: 1;
+}
+.hm-month-label {
+  position: absolute;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 日标签 + 格子区 */
+.heatmap-body {
+  display: flex;
+  align-items: flex-start;
+}
+.hm-day-labels {
+  display: flex;
+  flex-direction: column;
+  width: 24px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.hm-day-label {
+  height: 13px;
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: right;
+  padding-right: 6px;
+  line-height: 13px;
+}
+.hm-grid {
+  display: flex;
+  gap: 2px;
+}
+.hm-week-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hm-cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  transition: transform 0.1s ease, outline 0.1s ease;
+  cursor: pointer;
+}
+.hm-cell:hover {
+  transform: scale(1.4);
+  outline: 1px solid rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  position: relative;
+}
+.hm-cell.out-year {
+  background: transparent !important;
+  cursor: default;
+}
+.hm-cell.out-year:hover {
+  transform: none;
+  outline: none;
+}
+.hm-cell.is-today {
+  outline: 2px solid #3b82f6;
+  outline-offset: -1px;
+}
+
+/* 图例 */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f6fa;
+}
+.hm-legend-text {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 0 2px;
+}
+.hm-legend-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  display: inline-block;
 }
 </style>

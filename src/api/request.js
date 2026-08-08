@@ -19,8 +19,14 @@ request.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
+      // 如果请求标记了跳过认证重定向（如广播轮询），静默失败
+      if (error.config?.skipAuthRedirect) {
+        return Promise.reject(error)
+      }
+      // 清除登录状态，防止重定向循环
+      sessionStorage.removeItem('isLogin')
+      sessionStorage.removeItem('role')
       ElMessage.error('未登录或登录已过期，请重新登录')
-      // 跳转登录页
       window.location.href = '/login'
     } else {
       ElMessage.error(error.response?.data?.message || '网络异常')

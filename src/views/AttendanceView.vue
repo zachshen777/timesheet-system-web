@@ -93,6 +93,20 @@
               <el-icon><Select /></el-icon>
               已选择 <strong>{{ selectedDates.length }}</strong> 天，按住 Ctrl 多选日期可批量填报
             </div>
+
+            <!-- 键盘操作提示：右下角浅灰色小字 -->
+            <div class="cal-kbd-hint">
+              <span class="kbd-tip">💡<span class="kbd-highlight">按住Ctrl</span>点击日期可多选批量填报，可<span class="kbd-highlight">按Esc键</span>退出多选模式</span>
+              <el-tooltip placement="top" effect="dark" :show-after="200">
+                <template #content>
+                  <div class="kbd-tooltip-content">
+                    <div><strong>Ctrl + 点击</strong>：多选日期，批量填报相同工时</div>
+                    <div style="margin-top:4px"><strong>Esc</strong>：退出多选模式，回到单选状态</div>
+                  </div>
+                </template>
+                <el-icon class="kbd-help-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </div>
           </div>
 
           <!-- 右栏：工时填报 + 热力图 -->
@@ -204,6 +218,16 @@
 
           <!-- ==================== 热力图卡片 ==================== -->
           <div class="panel heatmap-panel">
+          <!-- 悬浮提示：绝对定位，不撑高卡片 -->
+          <div class="heatmap-hover-info" v-if="hoveredCell && hoveredCell.inYear">
+            <span class="hover-date">{{ hoveredCell.dateStr }}</span>
+            <template v-if="hoveredCell.total > 0">
+              <span class="hover-hours">{{ hoveredCell.work }}h</span>
+              <span class="hover-ot" v-if="hoveredCell.ot > 0">+{{ hoveredCell.ot }}h 加班</span>
+              <span class="hover-proj" v-if="hoveredCell.project">{{ hoveredCell.project }}</span>
+            </template>
+            <span v-else class="hover-empty">未填报</span>
+          </div>
           <div class="heatmap-header">
             <div class="panel-title-left">
               <span class="title-bar"></span>
@@ -220,15 +244,6 @@
               <span class="hm-stat"><strong>{{ yearStats.hours }}</strong>h 标准</span>
               <span class="hm-stat-sep">|</span>
               <span class="hm-stat hm-stat-ot"><strong>{{ yearStats.overtime }}</strong>h 加班</span>
-            </div>
-            <div class="heatmap-hover-info" v-if="hoveredCell && hoveredCell.inYear">
-              <span class="hover-date">{{ hoveredCell.dateStr }}</span>
-              <template v-if="hoveredCell.total > 0">
-                <span class="hover-hours">{{ hoveredCell.work }}h</span>
-                <span class="hover-ot" v-if="hoveredCell.ot > 0">+{{ hoveredCell.ot }}h 加班</span>
-                <span class="hover-proj" v-if="hoveredCell.project">{{ hoveredCell.project }}</span>
-              </template>
-              <span v-else class="hover-empty">未填报</span>
             </div>
             <div class="heatmap-collapse-btn" @click="heatmapCollapsed = !heatmapCollapsed">
               <el-icon><ArrowDown v-if="!heatmapCollapsed" /><ArrowUp v-else /></el-icon>
@@ -296,7 +311,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Timer, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, CopyDocument, Download,
-  Delete, Close, Loading
+  Delete, Close, Loading, QuestionFilled, Check, Select
 } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
 import { getMonthTimesheets, getYearTimesheets, saveTimesheet, batchSaveTimesheet, deleteTimesheet, batchDeleteTimesheet } from '../api/timesheet'
@@ -613,6 +628,16 @@ function loadFormForSelection() {
 function clearSelection() {
   selectedDates.value = []
   formKey.value++
+}
+
+// Esc 键退出多选模式
+function onKeyDown(e) {
+  if (e.key === 'Escape' && selectedDates.value.length > 1) {
+    // 只保留第一个选中日期
+    selectedDates.value = selectedDates.value.length > 0 ? [selectedDates.value[0]] : []
+    formKey.value++
+    loadFormForSelection()
+  }
 }
 
 // ===== 导航 =====
@@ -1003,6 +1028,8 @@ onMounted(async () => {
   selectedDates.value = [todayStr]
   formKey.value++
   loadFormForSelection()
+  // Esc 键退出多选模式
+  window.addEventListener('keydown', onKeyDown)
 })
 </script>
 
@@ -1074,6 +1101,7 @@ onMounted(async () => {
   padding: 20px;
   overflow-y: auto;
   min-width: 0;
+  align-items: center; /* 内容区水平居中，左右留空自适应 */
 }
 
 /* ==================== 横向双栏布局 ==================== */
@@ -1082,13 +1110,14 @@ onMounted(async () => {
   gap: 24px;
   flex-shrink: 0;
   align-items: stretch;
+  justify-content: center;
 }
 .calendar-panel {
   flex: 0 0 auto;
   min-width: 0;
 }
 .right-column {
-  flex: 1 1 0;
+  flex: 0 0 860px; /* 热力图完整宽度 = 53×13 + 52×2 + 24日标签 + 40padding + 2border = 859, 取860 */
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1250,10 +1279,9 @@ onMounted(async () => {
 
 .ts-form-body {
   display: grid;
-  grid-template-columns: 7fr 3fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0;
   padding: 0;
-  max-width: 600px;
 }
 
 .ts-form-left {
@@ -1285,7 +1313,6 @@ onMounted(async () => {
 }
 .ts-row-input {
   flex: 1;
-  max-width: 130px;
 }
 .ts-row-input :deep(.el-input-number) { width: 100%; }
 .ts-row-input :deep(.el-input__inner) {
@@ -1299,7 +1326,8 @@ onMounted(async () => {
 
 .ts-hours-row {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid #f3f4f6;
 }
@@ -1326,7 +1354,13 @@ onMounted(async () => {
 }
 .ts-quick-btns {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.btn-quick {
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  min-width: 40px;
 }
 
 .ts-stats {
@@ -1347,12 +1381,13 @@ onMounted(async () => {
   line-height: 1.2;
 }
 .ts-stat-label {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
 }
 .ts-stat-num {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   color: var(--el-color-primary);
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
@@ -1360,7 +1395,7 @@ onMounted(async () => {
   letter-spacing: 0.5px;
 }
 .ts-stat-unit {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-color-primary);
   margin-left: 2px;
@@ -1836,7 +1871,7 @@ onMounted(async () => {
 }
 
 .batch-hint {
-  margin: 0 16px 16px;
+  margin: 0 16px 12px;
   padding: 10px 14px;
   background: linear-gradient(90deg, #eef2ff 0%, #f5f3ff 100%);
   border-radius: 8px;
@@ -1848,6 +1883,41 @@ onMounted(async () => {
   border: 1px dashed #c7d2fe;
 }
 .batch-hint strong { color: #4338ca; font-weight: 700; }
+
+/* 键盘操作提示：日历卡片右下角 */
+.cal-kbd-hint {
+  margin: 4px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.kbd-tip {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+.kbd-highlight {
+  color: #6366f1;
+  font-weight: 600;
+  background: #eef2ff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.kbd-help-icon {
+  font-size: 14px;
+  color: #9ca3af;
+  cursor: help;
+  flex-shrink: 0;
+}
+.kbd-help-icon:hover {
+  color: #6366f1;
+}
+.kbd-tooltip-content {
+  line-height: 1.8;
+  font-size: 13px;
+}
 
 /* ==================== 表单元素微调 ==================== */
 :deep(.el-input-number .el-input__inner) {
@@ -1866,6 +1936,49 @@ onMounted(async () => {
 .heatmap-panel {
   flex-shrink: 0;
   padding: 16px 20px 14px;
+  position: relative;
+  overflow: visible; /* 允许 hover-info 浮出卡片边界 */
+}
+/* 悬浮提示：绝对定位，不影响卡片的正常高度 */
+.heatmap-hover-info {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+  background: #f9fafb;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid #f0f1f5;
+  z-index: 10;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hover-date {
+  font-weight: 600;
+  color: #1f2937;
+}
+.hover-hours {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+.hover-ot {
+  color: #f97316;
+  font-weight: 600;
+}
+.hover-proj {
+  color: #6b7280;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hover-empty {
+  color: #9ca3af;
 }
 .heatmap-header {
   display: flex;
@@ -1910,41 +2023,6 @@ onMounted(async () => {
 .hm-stat-sep {
   color: #e5e7eb;
 }
-.heatmap-hover-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #4b5563;
-  background: #f9fafb;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid #f0f1f5;
-}
-.hover-date {
-  font-weight: 600;
-  color: #1f2937;
-  font-variant-numeric: tabular-nums;
-}
-.hover-hours {
-  color: #1d4ed8;
-  font-weight: 600;
-}
-.hover-ot {
-  color: #f97316;
-  font-weight: 600;
-}
-.hover-proj {
-  color: #6b7280;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.hover-empty {
-  color: #9ca3af;
-}
-
 .heatmap-collapse-btn {
   margin-left: auto;
   display: flex;

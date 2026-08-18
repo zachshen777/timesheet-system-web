@@ -333,7 +333,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 0 28px;
   height: 60px;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 16px;
@@ -439,7 +439,7 @@ onMounted(() => {
 
 .holiday-count {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
 }
 
 .item-name-tag {
@@ -450,7 +450,7 @@ onMounted(() => {
 
 .form-tip {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
 }
 .form-tip strong {
   color: #6366f1;
@@ -475,7 +475,7 @@ onMounted(() => {
 
 .config-info li {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary, #666);
   line-height: 2;
   padding-left: 16px;
   position: relative;

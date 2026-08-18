@@ -511,7 +511,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 0 28px;
   height: 60px;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 16px;

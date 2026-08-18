@@ -408,7 +408,7 @@ async function loadDeptOptions() {
   justify-content: space-between;
   padding: 0 28px;
   height: 60px;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 16px;
@@ -570,17 +570,17 @@ async function loadDeptOptions() {
 }
 
 .table-card :deep(.el-table th) {
-  background: #f8fafc;
+  background: var(--el-table-header-bg-color, #f8fafc);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .table-card :deep(.el-table__row:hover > td) {
-  background: #f0f4ff !important;
+  background: var(--el-table-row-hover-bg-color, #f0f4ff) !important;
 }
 
 .table-card :deep(.el-table__body tr.current-row > td) {
-  background: #eef2ff !important;
+  background: var(--el-table-row-hover-bg-color, #eef2ff) !important;
 }
 
 .hours-val {

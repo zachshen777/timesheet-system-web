@@ -302,11 +302,49 @@
       </div>
     </div>
   </div>
+
+    <!-- ==================== 成就解锁弹窗（顶部居中，2秒消失） ==================== -->
+    <transition name="achv-pop">
+      <div v-if="activeAchievement" class="achievement-toast">
+        <span class="achv-icon">{{ activeAchievement.icon }}</span>
+        <div class="achv-body">
+          <div class="achv-title">✨ 成就解锁</div>
+          <div class="achv-name">{{ activeAchievement.name }}</div>
+          <div v-if="activeAchievement.reward" class="achv-reward">🎁 奖励：{{ activeAchievement.reward }}</div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ==================== 下班倒计时悬浮球（右下角，可拖拽） ==================== -->
+    <el-tooltip
+      :content="offWork.passed
+        ? '理论下班时间已过，可是你还在加班... 默认下班时间 17:30'
+        : `距离下班：理论 ${offWork.h}h${offWork.m}m，实际多久你别管🙂 · 默认下班 17:30`"
+      placement="top"
+      effect="dark"
+      :disabled="ballDragging"
+    >
+      <div
+        class="off-work-ball"
+        :class="{ dragging: ballDragging, 'gold-skin': ballGoldSkin }"
+        :style="{ left: offWorkPos.x + 'px', top: offWorkPos.y + 'px' }"
+        @mousedown="onBallMouseDown"
+      >
+        <template v-if="!offWork.passed">
+          <span class="ball-icon">⏱</span>
+          <span class="ball-time">{{ offWork.h > 0 ? offWork.h + 'h' + offWork.m + 'm' : offWork.m + 'm' }}</span>
+        </template>
+        <template v-else>
+          <span class="ball-icon">😭</span>
+          <span class="ball-time">已过</span>
+        </template>
+      </div>
+    </el-tooltip>
 </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -318,6 +356,7 @@ import { getMonthTimesheets, getYearTimesheets, saveTimesheet, batchSaveTimeshee
 import { exportTimesheet } from '../api/report'
 import { getHolidays } from '../api/config'
 import AppSidebar from '../components/AppSidebar.vue'
+import { ACHIEVEMENTS, loadUnlocked, unlockAchievement } from '../utils/achievements'
 
 const userStore = useUserStore()
 
@@ -572,6 +611,8 @@ async function loadMonthTimesheets() {
   } catch (err) {
     console.error('加载工时记录失败:', err)
   }
+  // 成就检查：该月热力图全绿 → 月度劳模
+  checkMonthGreen()
 }
 
 function onCellClick(event, cell) {
@@ -769,6 +810,8 @@ async function handleSave() {
     if (savedYear === heatYear.value) {
       loadYearTimesheets()
     }
+    // 成就检查：初次搬砖 / 连续7天 / 批量填报 / 月度劳模
+    checkAchievements({ fill: true, batch: selectedDates.value.length > 1 })
   } catch (err) {
     console.error('保存工时失败:', err)
   } finally {
@@ -920,6 +963,8 @@ async function loadYearTimesheets() {
   } catch (err) {
     console.error('加载年度工时失败:', err)
   }
+  // 成就检查：年度数据就绪后，当前季度热力图全绿 → 天命打工人
+  checkQuarterGreen()
 }
 
 function prevHeatYear() { heatYear.value-- }
@@ -1017,6 +1062,179 @@ watch(heatYear, () => {
   loadYearTimesheets()
 })
 
+// ===== 成就徽章系统（定义与存储见 ../utils/achievements.js） =====
+
+const activeAchievement = ref(null)
+const achvQueue = []
+let achvTimer = null
+
+/** 高效搬砖人（Ctrl 批量填报）解锁后启用金色悬浮球皮肤 */
+const ballGoldSkin = ref(!!loadUnlocked()['ctrl_batch'])
+
+function showAchievement(id) {
+  if (!ACHIEVEMENTS[id] || !unlockAchievement(id)) return
+  // 解锁奖励即时生效：金色悬浮球皮肤
+  if (id === 'ctrl_batch') ballGoldSkin.value = true
+  achvQueue.push(ACHIEVEMENTS[id])
+  if (!activeAchievement.value) nextAchievement()
+}
+
+function nextAchievement() {
+  if (!achvQueue.length) return
+  activeAchievement.value = achvQueue.shift()
+  clearTimeout(achvTimer)
+  achvTimer = setTimeout(() => {
+    activeAchievement.value = null
+    nextAchievement()
+  }, 3000)
+}
+
+/** 连续 7 天填报检查（基于年度数据，map key 即日期） */
+function checkStreak7() {
+  const dates = Object.keys(yearTsMap.value)
+    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .map(d => new Date(d + 'T00:00:00'))
+    .sort((a, b) => a - b)
+  if (!dates.length) return
+  let maxStreak = 1
+  let cur = 1
+  for (let i = 1; i < dates.length; i++) {
+    cur = (dates[i] - dates[i - 1]) === 86400000 ? cur + 1 : 1
+    maxStreak = Math.max(maxStreak, cur)
+  }
+  if (maxStreak >= 7) showAchievement('streak7')
+}
+
+/** 月度劳模检查：当前日历月份所有应出勤日（工作日+调班日）都已填报 */
+function checkMonthGreen() {
+  const y = calYear.value
+  const m = calMonth.value
+  const daysInMonth = new Date(y, m, 0).getDate()
+  let allGreen = true
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const type = getDayType(ds)
+    if (type !== 'workday' && type !== 'shift') continue
+    const ts = timesheetMap.value[ds]
+    if (!ts || (Number(ts.workHours || 0) <= 0 && Number(ts.overtimeHours || 0) <= 0)) {
+      allGreen = false
+      break
+    }
+  }
+  if (allGreen) showAchievement('month_green')
+}
+
+/** 天命打工人检查：日历当前显示月份所在季度，该季度所有应出勤日（工作日+调班日）都已填报（基于年度数据） */
+function checkQuarterGreen() {
+  const y = calYear.value
+  const m = calMonth.value
+  const qStart = Math.floor((m - 1) / 3) * 3 + 1 // 季度起始月（1/4/7/10）
+  const qEnd = qStart + 2
+  let allGreen = true
+  let checkedDays = 0
+  for (let mo = qStart; mo <= qEnd; mo++) {
+    const daysInMonth = new Date(y, mo, 0).getDate()
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      const type = getDayType(ds)
+      if (type !== 'workday' && type !== 'shift') continue
+      checkedDays++
+      const ts = yearTsMap.value[ds]
+      if (!ts || (Number(ts.workHours || 0) <= 0 && Number(ts.overtimeHours || 0) <= 0)) {
+        allGreen = false
+        break
+      }
+    }
+    if (!allGreen) break
+  }
+  if (allGreen && checkedDays > 0) showAchievement('quarter_green')
+}
+
+/** 填报完成后的成就检查入口 */
+function checkAchievements({ fill = false, batch = false } = {}) {
+  if (fill) {
+    showAchievement('first_fill')
+    checkStreak7()
+  }
+  if (batch) showAchievement('ctrl_batch')
+  checkMonthGreen()
+  checkQuarterGreen()
+}
+
+// ===== 下班倒计时悬浮球（右下角，可拖拽） =====
+const OFF_WORK_HOUR = 17
+const OFF_WORK_MINUTE = 30
+const offWork = ref({ h: 0, m: 0, passed: false })
+let offWorkTimer = null
+
+// 悬浮球拖拽状态与位置（localStorage 持久化）
+const BALL_POS_KEY = 'ts_offwork_ball_pos'
+const BALL_W = 96
+const BALL_H = 46
+function loadBallPos() {
+  let x = window.innerWidth - BALL_W - 24
+  let y = window.innerHeight - BALL_H - 24
+  try {
+    const saved = JSON.parse(localStorage.getItem(BALL_POS_KEY) || 'null')
+    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+      x = saved.x
+      y = saved.y
+    }
+  } catch { /* 忽略损坏数据 */ }
+  return {
+    x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - BALL_W - 8)),
+    y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - BALL_H - 8))
+  }
+}
+const offWorkPos = ref(loadBallPos())
+const ballDragging = ref(false)
+let ballDrag = null // { startX, startY, origLeft, origTop }
+
+function onBallMouseDown(e) {
+  if (e.button !== 0) return
+  ballDragging.value = true
+  ballDrag = {
+    startX: e.clientX,
+    startY: e.clientY,
+    origLeft: offWorkPos.value.x,
+    origTop: offWorkPos.value.y
+  }
+  window.addEventListener('mousemove', onBallMouseMove)
+  window.addEventListener('mouseup', onBallMouseUp)
+}
+
+function onBallMouseMove(e) {
+  if (!ballDrag) return
+  const x = Math.min(Math.max(8, ballDrag.origLeft + e.clientX - ballDrag.startX), window.innerWidth - BALL_W - 8)
+  const y = Math.min(Math.max(8, ballDrag.origTop + e.clientY - ballDrag.startY), window.innerHeight - BALL_H - 8)
+  offWorkPos.value = { x, y }
+}
+
+function onBallMouseUp() {
+  if (!ballDrag) return
+  window.removeEventListener('mousemove', onBallMouseMove)
+  window.removeEventListener('mouseup', onBallMouseUp)
+  ballDragging.value = false
+  ballDrag = null
+  try { localStorage.setItem(BALL_POS_KEY, JSON.stringify(offWorkPos.value)) } catch { /* 忽略 */ }
+}
+
+function updateOffWork() {
+  const now = new Date()
+  const end = new Date(now)
+  end.setHours(OFF_WORK_HOUR, OFF_WORK_MINUTE, 0, 0)
+  const diffSec = Math.floor((end - now) / 1000)
+  if (diffSec <= 0) {
+    offWork.value = { h: 0, m: 0, passed: true }
+  } else {
+    offWork.value = {
+      h: Math.floor(diffSec / 3600),
+      m: Math.floor((diffSec % 3600) / 60),
+      passed: false
+    }
+  }
+}
+
 onMounted(async () => {
   if (!userStore.userInfo) {
     await userStore.fetchUserInfo()
@@ -1030,6 +1248,17 @@ onMounted(async () => {
   loadFormForSelection()
   // Esc 键退出多选模式
   window.addEventListener('keydown', onKeyDown)
+  // 下班倒计时：立即更新 + 每 30 秒刷新（分钟级精度）
+  updateOffWork()
+  offWorkTimer = setInterval(updateOffWork, 30000)
+})
+
+onUnmounted(() => {
+  if (offWorkTimer) clearInterval(offWorkTimer)
+  if (achvTimer) clearTimeout(achvTimer)
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('mousemove', onBallMouseMove)
+  window.removeEventListener('mouseup', onBallMouseUp)
 })
 </script>
 
@@ -1038,16 +1267,16 @@ onMounted(async () => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f9fafb;
+  background: var(--bg-main, #f9fafb);
   overflow: hidden;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
 }
 
 /* ==================== 顶部导航 ==================== */
 .top-bar {
   height: 60px;
-  background: #ffffff;
-  border-bottom: 1px solid #ebeef5;
+  background: var(--bg-card, #ffffff);
+  border-bottom: 1px solid var(--border, #ebeef5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1075,7 +1304,7 @@ onMounted(async () => {
 .top-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   letter-spacing: 0.5px;
 }
 
@@ -1126,10 +1355,10 @@ onMounted(async () => {
 
 /* Panel 通用 */
 .panel {
-  background: #ffffff;
+  background: var(--bg-card, #ffffff);
   border-radius: 6px;
   box-shadow: 0 1px 3px #00000008;
-  border: 1px solid #f0f1f5;
+  border: 1px solid var(--border, #f0f1f5);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1173,8 +1402,8 @@ onMounted(async () => {
   50% { border-color: rgba(59, 130, 246, 0.4); }
 }
 .date-badge-main.muted {
-  color: #9ca3af;
-  background: #f3f4f6;
+  color: var(--text-muted, #9ca3af);
+  background: var(--bg-hover, #f3f4f6);
   font-weight: 500;
   font-size: 13px;
 }
@@ -1217,7 +1446,7 @@ onMounted(async () => {
   align-items: center;
   padding: 0 0 12px 0;
   margin-bottom: 12px;
-  border-bottom: 1px solid #f5f6fa;
+  border-bottom: 1px solid var(--border, #f5f6fa);
   gap: 16px;
 }
 .panel-title-left {
@@ -1226,7 +1455,7 @@ onMounted(async () => {
   gap: 8px;
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
 }
 .panel-title-right {
   margin-left: auto;
@@ -1267,7 +1496,7 @@ onMounted(async () => {
 
 .ts-clear {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
@@ -1307,7 +1536,7 @@ onMounted(async () => {
   width: 60px;
   font-size: 14px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary, #4b5563);
   text-align: left;
   white-space: nowrap;
 }
@@ -1338,7 +1567,7 @@ onMounted(async () => {
 .ts-block-label {
   font-size: 14px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary, #4b5563);
   margin-bottom: 4px;
 }
 
@@ -1349,7 +1578,7 @@ onMounted(async () => {
 .ts-quick-label {
   font-size: 14px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary, #4b5563);
   margin-bottom: 8px;
 }
 .ts-quick-btns {
@@ -1382,7 +1611,7 @@ onMounted(async () => {
 }
 .ts-stat-label {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   font-weight: 500;
 }
 .ts-stat-num {
@@ -1424,7 +1653,7 @@ onMounted(async () => {
   justify-content: space-between;
   padding-bottom: 10px;
   margin-bottom: 8px;
-  border-bottom: 1px solid #f0f1f5;
+  border-bottom: 1px solid var(--border, #f0f1f5);
   gap: 12px;
 }
 .cal-header-left {
@@ -1437,13 +1666,13 @@ onMounted(async () => {
   align-items: baseline;
   gap: 4px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   min-width: 90px;
   justify-content: center;
 }
 .cal-year {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
@@ -1455,7 +1684,7 @@ onMounted(async () => {
 .cal-week-range {
   font-size: 15px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   white-space: nowrap;
   font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -1482,7 +1711,7 @@ onMounted(async () => {
   font-size: 12px;
   padding-bottom: 12px;
   margin-bottom: 4px;
-  border-bottom: 1px solid #f5f6fa;
+  border-bottom: 1px solid var(--border, #f5f6fa);
 }
 .legend-tag {
   display: inline-flex;
@@ -1511,8 +1740,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--text-secondary, #6b7280);
+  background: var(--bg-hover, #f3f4f6);
   transition: all 0.2s;
   flex-shrink: 0;
 }
@@ -1547,8 +1776,8 @@ onMounted(async () => {
 
 /* 待填报 — 灰色（对应工作日待填报空白格子） */
 .lg-pending {
-  color: #9ca3af;
-  background: #f3f4f6;
+  color: var(--text-muted, #9ca3af);
+  background: var(--bg-hover, #f3f4f6);
 }
 .lg-pending .dot { background: #d1d5db; }
 
@@ -1611,12 +1840,12 @@ onMounted(async () => {
   padding: 4px 0;
   border-radius: 4px;
   margin-bottom: 2px;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--text-secondary, #6b7280);
+  background: var(--bg-hover, #f3f4f6);
   transition: all 0.2s;
 }
 .cal-weekday.col-rest {
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
 }
 
 .cal-cell {
@@ -1633,23 +1862,23 @@ onMounted(async () => {
   transition: all 0.2s ease;
   font-size: 14px;
   font-weight: 600;
-  color: #4b5563;
+  color: var(--text-secondary, #4b5563);
   border: 2px solid transparent;
-  background: #ffffff;
+  background: var(--bg-card, #ffffff);
   gap: 3px;
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
 .cal-cell.empty { cursor: default; background: transparent; }
 .cal-cell.has-day:hover {
-  background: var(--el-color-primary-light-9);
+  background: var(--color-primary-light, var(--el-color-primary-light-9));
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
   z-index: 2;
 }
 
 /* 工作日（周一-周五）：白色 */
-.cal-cell.daytype-workday { background: #ffffff; }
+.cal-cell.daytype-workday { background: var(--bg-card, #ffffff); }
 /* 周六：浅绿底（休息日） */
 .cal-cell.daytype-saturday { background: #f0fdf4; }
 .cal-cell.daytype-saturday .cell-num { color: #16a34a; }
@@ -1668,8 +1897,8 @@ onMounted(async () => {
 .cal-cell.daytype-shift .cell-num { color: #6d28d9; font-weight: 700; }
 
 /* 待填报状态与列底色合并 — 工作日待填报空白 */
-.cal-cell.st-pending { color: #9ca3af; }
-.cal-cell.daytype-workday.st-pending { background: #ffffff; }
+.cal-cell.st-pending { color: var(--text-muted, #9ca3af); }
+.cal-cell.daytype-workday.st-pending { background: var(--bg-card, #ffffff); }
 .cal-cell.daytype-saturday.st-pending { background: #f0fdf4; }
 .cal-cell.daytype-sunday.st-pending { background: #f0fdf4; }
 .cal-cell.daytype-holiday.st-pending { background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%); }
@@ -1894,29 +2123,166 @@ onMounted(async () => {
 }
 .kbd-tip {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   line-height: 1.4;
 }
 .kbd-highlight {
-  color: #6366f1;
+  color: var(--primary-color, #6366f1);
   font-weight: 600;
-  background: #eef2ff;
+  background: var(--color-primary-light, #eef2ff);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 11px;
 }
 .kbd-help-icon {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   cursor: help;
   flex-shrink: 0;
 }
 .kbd-help-icon:hover {
-  color: #6366f1;
+  color: var(--primary-color, #6366f1);
 }
 .kbd-tooltip-content {
   line-height: 1.8;
   font-size: 13px;
+}
+
+/* ==================== 下班倒计时悬浮球（右下角，可拖拽） ==================== */
+.off-work-ball {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  height: 46px;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50px;
+  box-shadow: 0 8px 28px rgba(79, 70, 229, 0.38), 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.off-work-ball:hover {
+  box-shadow: 0 10px 32px rgba(79, 70, 229, 0.5);
+}
+.off-work-ball.dragging {
+  cursor: grabbing;
+  transform: scale(1.06);
+  box-shadow: 0 14px 40px rgba(79, 70, 229, 0.55);
+}
+.ball-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.ball-time {
+  color: #fde047;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* ==================== 金色悬浮球皮肤（高效搬砖人成就解锁） ==================== */
+.off-work-ball.gold-skin {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 45%, #f59e0b 100%);
+  border: 1px solid rgba(255, 245, 200, 0.55);
+  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.45), 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: gold-ball-shine 3s ease-in-out infinite;
+}
+.off-work-ball.gold-skin:hover {
+  box-shadow: 0 10px 34px rgba(245, 158, 11, 0.6);
+}
+.off-work-ball.gold-skin.dragging {
+  box-shadow: 0 14px 40px rgba(245, 158, 11, 0.7);
+}
+.off-work-ball.gold-skin .ball-time {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(120, 53, 15, 0.45);
+}
+@keyframes gold-ball-shine {
+  0%, 100% {
+    box-shadow: 0 8px 28px rgba(245, 158, 11, 0.45), 0 0 0 0 rgba(251, 191, 36, 0.45);
+  }
+  50% {
+    box-shadow: 0 8px 34px rgba(245, 158, 11, 0.62), 0 0 18px 4px rgba(251, 191, 36, 0.35);
+  }
+}
+
+/* ==================== 成就解锁弹窗（顶部居中） ==================== */
+.achievement-toast {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 28px 12px 16px;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 55%, #ef4444 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(245, 158, 11, 0.45), 0 2px 10px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  white-space: nowrap;
+}
+.achv-icon {
+  font-size: 34px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+.achv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.achv-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  opacity: 0.9;
+}
+.achv-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.achv-reward {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  padding: 2px 10px;
+  margin-top: 3px;
+  width: fit-content;
+  color: #ffffff;
+  white-space: nowrap;
+}
+/* 滑入动画 */
+.achv-pop-enter-active {
+  transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.achv-pop-leave-active {
+  transition: all 0.35s ease;
+}
+.achv-pop-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -24px) scale(0.85);
+}
+.achv-pop-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -16px) scale(0.9);
 }
 
 /* ==================== 表单元素微调 ==================== */
@@ -1949,18 +2315,18 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #4b5563;
-  background: #f9fafb;
+  color: var(--text-secondary, #4b5563);
+  background: var(--bg-card, #f9fafb);
   padding: 4px 12px;
   border-radius: 8px;
-  border: 1px solid #f0f1f5;
+  border: 1px solid var(--border, #f0f1f5);
   z-index: 10;
   white-space: nowrap;
   pointer-events: none;
 }
 .hover-date {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
 }
 .hover-hours {
   color: #1d4ed8;
@@ -1971,14 +2337,14 @@ onMounted(async () => {
   font-weight: 600;
 }
 .hover-proj {
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .hover-empty {
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
 }
 .heatmap-header {
   display: flex;
@@ -1986,7 +2352,7 @@ onMounted(async () => {
   gap: 16px;
   padding-bottom: 10px;
   margin-bottom: 10px;
-  border-bottom: 1px solid #f0f1f5;
+  border-bottom: 1px solid var(--border, #f0f1f5);
   flex-wrap: wrap;
 }
 .heatmap-year-switch {
@@ -1997,7 +2363,7 @@ onMounted(async () => {
 .heatmap-year-text {
   font-size: 15px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   min-width: 50px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -2008,10 +2374,10 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
 }
 .hm-stat strong {
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -2021,7 +2387,7 @@ onMounted(async () => {
   color: #f97316;
 }
 .hm-stat-sep {
-  color: #e5e7eb;
+  color: var(--border, #e5e7eb);
 }
 .heatmap-collapse-btn {
   margin-left: auto;
@@ -2032,13 +2398,13 @@ onMounted(async () => {
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   transition: all 0.2s;
   flex-shrink: 0;
 }
 .heatmap-collapse-btn:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-primary, #1f2937);
 }
 
 .heatmap-scroll {
@@ -2072,7 +2438,7 @@ onMounted(async () => {
 .hm-month-label {
   position: absolute;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2092,7 +2458,7 @@ onMounted(async () => {
 .hm-day-label {
   height: 13px;
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   text-align: right;
   padding-right: 6px;
   line-height: 13px;
@@ -2140,11 +2506,11 @@ onMounted(async () => {
   justify-content: flex-end;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #f5f6fa;
+  border-top: 1px solid var(--border, #f5f6fa);
 }
 .hm-legend-text {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   margin: 0 2px;
 }
 .hm-legend-cell {

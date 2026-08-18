@@ -19,7 +19,7 @@
         <div class="logo-circle">
           <el-icon :size="26" color="#fff"><Clock /></el-icon>
         </div>
-        <h1>工时填报系统</h1>
+        <h1>工时填报系统牛马专用</h1>
         <p class="login-subtitle">TIMESHEET SYSTEM</p>
       </div>
 
@@ -45,7 +45,7 @@
             v-model="form.password"
             type="password"
             size="large"
-            placeholder="请输入密码"
+            placeholder="请输入精神内耗密码"
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
@@ -60,13 +60,13 @@
             :loading="loading"
             @click="handleLogin"
           >
-            登 录
+            打工上岗
           </el-button>
         </el-form-item>
       </el-form>
 
       <div class="login-footer">
-        <span class="version">工时填报系统 v1.0.0</span>
+        <span class="version">本系统仅供搬砖记录，不保证准时下班</span>
       </div>
     </div>
   </div>
@@ -122,7 +122,7 @@ const form = reactive({
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入精神内耗密码', trigger: 'blur' }]
 }
 
 async function handleLogin() {
@@ -137,7 +137,8 @@ async function handleLogin() {
       ElMessage.success('登录成功')
       router.push('/attendance')
     } catch (err) {
-      // 错误已由拦截器处理
+      // 登录失败：自定义提示（拦截器已跳过自动提示）
+      ElMessage.error('🚫上岗失败，工号 / 密码不对，禁止上岗搬砖')
       console.error('登录失败:', err)
     } finally {
       loading.value = false
@@ -278,7 +279,7 @@ async function handleLogin() {
   border-radius: 8px;
   font-size: 15px;
   font-weight: 500;
-  letter-spacing: 6px;
+  letter-spacing: 2px;
   height: 44px;
   background: linear-gradient(135deg, #6677e8 0%, #8a6ee6 100%);
   border: none;
@@ -297,12 +298,12 @@ async function handleLogin() {
 /* 右下角淡灰色版本号 */
 .login-footer {
   margin-top: 28px;
-  text-align: right;
+  text-align: center;
 }
 
 .version {
   font-size: 11px;
-  color: rgba(107, 114, 128, 0.45);
+  color: rgba(107, 114, 128, 0.5);
   letter-spacing: 0.5px;
 }
 </style>

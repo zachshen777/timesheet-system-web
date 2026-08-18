@@ -24,6 +24,12 @@ const routes = [
     meta: { title: '工时报表', requiresAuth: true }
   },
   {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/ProfileView.vue'),
+    meta: { title: '个人中心', requiresAuth: true }
+  },
+  {
     path: '/admin/config',
     name: 'AdminConfig',
     component: () => import('../views/AdminConfigView.vue'),

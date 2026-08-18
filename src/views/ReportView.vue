@@ -313,15 +313,15 @@ onUnmounted(() => {
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: #f9fafb;
+  background: var(--bg-main, #f9fafb);
   flex-direction: column;
 }
 
 /* ===== 顶部栏 ===== */
 .top-bar {
   height: 60px;
-  background: #ffffff;
-  border-bottom: 1px solid #ebeef5;
+  background: var(--bg-card, #ffffff);
+  border-bottom: 1px solid var(--border, #ebeef5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -350,7 +350,7 @@ onUnmounted(() => {
 .top-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   letter-spacing: 0.5px;
 }
 
@@ -368,7 +368,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   transition: all 0.2s ease;
 }
 
@@ -383,14 +383,14 @@ onUnmounted(() => {
   align-items: baseline;
   gap: 4px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   min-width: 100px;
   justify-content: center;
 }
 
 .date-year {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   font-family: 'Segoe UI', 'Helvetica Neue', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
@@ -398,7 +398,7 @@ onUnmounted(() => {
 .date-month {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary, #1f2937);
   font-family: 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
@@ -447,7 +447,7 @@ onUnmounted(() => {
 
 .report-chart-card {
   flex: 1;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-radius: 6px;
   padding: 20px;
   box-shadow: 0 1px 3px #00000008;
@@ -494,7 +494,7 @@ onUnmounted(() => {
 .report-summary-card {
   width: 400px;
   min-width: 360px;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-radius: 6px;
   padding: 20px;
   box-shadow: 0 1px 3px #00000008;
@@ -576,7 +576,7 @@ onUnmounted(() => {
 
 /* 下半部分 */
 .report-detail-card {
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-radius: 6px;
   padding: 20px;
   box-shadow: 0 1px 3px #00000008;

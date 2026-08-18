@@ -18,6 +18,10 @@ request.interceptors.response.use(
     return res
   },
   (error) => {
+    // 请求标记跳过错误提示 + 跳过 401 重定向时，静默失败交给调用方自行处理
+    if (error.config?.skipErrorMessage) {
+      return Promise.reject(error)
+    }
     if (error.response && error.response.status === 401) {
       // 如果请求标记了跳过认证重定向（如广播轮询），静默失败
       if (error.config?.skipAuthRedirect) {

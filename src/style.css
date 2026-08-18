@@ -23,6 +23,7 @@
   /* 背景与边框 */
   --bg-main:     #f9fafb;
   --bg-hover:    #f1f5f9;
+  --bg-card:     #ffffff;
   --border:      #e5e7eb;
 
   /* 主题色 */
@@ -174,4 +175,119 @@ a {
 .el-table .cell {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* ==================================================================
+   暗夜主题（data-theme="dark"，需解锁"打工铁人"成就后可用）
+   ================================================================== */
+html[data-theme='dark'] {
+  --primary-color: #818cf8;
+  --bg-gradient-start: #1e1b4b;
+  --bg-gradient-end: #312e81;
+
+  --text-primary:   #e5e7eb;
+  --text-secondary: #a1a8b8;
+  --text-muted:     #6b7280;
+  --text-tertiary:  #7d8494;
+
+  /* 背景与边框 */
+  --bg-main:     #0e1116;
+  --bg-hover:    #1c212c;
+  --bg-card:     #161a24;
+  --border:      #262c3a;
+
+  --color-primary:       #6366f1;
+  --color-primary-light: #171a26;
+
+  /* Element Plus 主色：亮色下微调对比度 */
+  --el-color-primary:          #6d76f5;
+  --el-color-primary-light-3:  #7c86f8;
+  --el-color-primary-light-5:  #5b64c9;
+  --el-color-primary-light-7:  #454c9e;
+  --el-color-primary-light-8:  #363c7c;
+  --el-color-primary-light-9:  #252a57;
+  --el-color-primary-dark-2:   #8a93ff;
+
+  /* Element Plus 通用组件变量（html.dark 之外的兜底） */
+  --el-bg-color:            #161a24;
+  --el-bg-color-overlay:    #1d2230;
+  --el-bg-color-page:       #0e1116;
+  --el-fill-color-blank:    #161a24;
+  --el-fill-color:          #232937;
+  --el-fill-color-light:    #1d2230;
+  --el-fill-color-lighter:  #1a1f2b;
+  --el-fill-color-extra-light: #171c26;
+  --el-border-color:        #2b3242;
+  --el-border-color-light:  #262c3a;
+  --el-border-color-lighter:#232937;
+  --el-border-color-extra-light: #1f2531;
+  --el-text-color-primary:  #e5e7eb;
+  --el-text-color-regular:  #b9c0cf;
+  --el-text-color-secondary:#8b93a5;
+  --el-text-color-placeholder: #5b6474;
+  --el-mask-color:          rgba(10, 12, 18, 0.7);
+  --el-mask-color-extra-light: rgba(10, 12, 18, 0.3);
+}
+
+/* 暗夜主题全局底色（html/body 背景，防止 overscroll 白边） */
+html[data-theme='dark'] body {
+  background: #0e1116;
+}
+
+/* 暗夜主题下主按钮 hover（--el-color-primary-dark-2 已翻转） */
+html[data-theme='dark'] .el-button--primary:hover,
+html[data-theme='dark'] .el-button--primary:focus {
+  background-color: #8a93ff;
+  border-color: #8a93ff;
+}
+
+/* 暗夜主题下次按钮 */
+html[data-theme='dark'] .el-button.btn-secondary {
+  background: #161a24;
+  border-color: #6d76f5;
+  color: #8a93ff;
+}
+html[data-theme='dark'] .el-button.btn-secondary:hover,
+html[data-theme='dark'] .el-button.btn-secondary:focus {
+  background: #252a57;
+  border-color: #6d76f5;
+  color: #a5adff;
+}
+
+/* 暗夜主题下输入框 */
+html[data-theme='dark'] .el-input__wrapper,
+html[data-theme='dark'] .el-textarea__inner {
+  background: #161a24;
+}
+html[data-theme='dark'] .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #6d76f5 inset !important;
+}
+html[data-theme='dark'] .el-input__wrapper.is-focus,
+html[data-theme='dark'] .el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 1px #6d76f5 inset, 0 2px 12px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* 暗夜主题下 el-table 表头底色与表格背景 */
+html[data-theme='dark'] .el-table {
+  --el-table-header-bg-color: #1a1f2b;
+  --el-table-tr-bg-color: transparent;
+  --el-table-row-hover-bg-color: #1d2230;
+}
+
+/* 暗夜主题下消息框/下拉/日期面板等浮层 */
+html[data-theme='dark'] .el-popper,
+html[data-theme='dark'] .el-dropdown-menu,
+html[data-theme='dark'] .el-select-dropdown,
+html[data-theme='dark'] .el-date-picker {
+  --el-bg-color-overlay: #1d2230;
+  background: #1d2230;
+  border-color: #2b3242;
+}
+
+/* 暗夜主题滚动条 */
+html[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #333b4d;
+}
+html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #404a60;
 }

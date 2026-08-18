@@ -279,7 +279,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 0 28px;
   height: 60px;
-  background: #fff;
+  background: var(--bg-card, #fff);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 16px;
@@ -353,7 +353,7 @@ onMounted(() => {
 .dept-code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  background: #f0f0f5;
+  background: var(--bg-hover, #f0f0f5);
   padding: 2px 8px;
   border-radius: 4px;
   color: #6366f1;
@@ -361,7 +361,7 @@ onMounted(() => {
 
 .form-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
   margin-top: 4px;
 }
 
@@ -372,7 +372,7 @@ onMounted(() => {
 .dept-guide h3 {
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   margin-bottom: 12px;
 }
 
@@ -383,7 +383,7 @@ onMounted(() => {
 
 .dept-guide li {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary, #666);
   line-height: 2;
   padding-left: 16px;
   position: relative;
@@ -403,7 +403,7 @@ onMounted(() => {
 .dept-guide code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
-  background: #f0f0f5;
+  background: var(--bg-hover, #f0f0f5);
   padding: 1px 6px;
   border-radius: 3px;
   color: #6366f1;

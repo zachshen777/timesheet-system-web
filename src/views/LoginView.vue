@@ -7,9 +7,10 @@
       loop
       playsinline
       preload="auto"
+      :key="currentBg.src"
       @canplay="tryPlay"
     >
-      <source src="/login-bg.webm" type="video/webm" />
+      <source :src="currentBg.src" type="video/webm" />
     </video>
     <!-- 半透明遮罩，压暗视频、增强卡片对比 -->
     <div class="login-overlay"></div>
@@ -65,19 +66,47 @@
         </el-form-item>
       </el-form>
 
+      <!-- 账号提示：姓名拼音 + 默认密码 -->
+      <div class="login-tip">
+        <el-icon class="tip-icon"><InfoFilled /></el-icon>
+        <span>
+          账号提示：用户名为<b>姓名拼音</b>（如 zhangsan），密码默认
+          <b>123456</b>
+        </span>
+      </div>
+
       <div class="login-footer">
         <span class="version">本系统仅供搬砖记录，不保证准时下班</span>
       </div>
     </div>
+
+    <!-- 背景选择器（左下角浮动） -->
+    <div class="bg-selector">
+      <span class="bg-selector-label">背景</span>
+      <div
+        v-for="(bg, i) in backgrounds"
+        :key="bg.src"
+        class="bg-thumb"
+        :class="{ active: currentBg.src === bg.src }"
+        @click="switchBg(bg)"
+      >
+        <video :src="bg.src" muted preload="metadata" class="bg-thumb-video"></video>
+        <span class="bg-thumb-name">{{ bg.name }}</span>
+      </div>
+    </div>
+
+    <!-- 弹跳 GIF：仅在选择"鸡你太美"背景时显示 -->
+    <BouncingGif v-if="showGif" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Clock } from '@element-plus/icons-vue'
+import { User, Lock, Clock, InfoFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
+import BouncingGif from '../components/BouncingGif.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -85,6 +114,32 @@ const userStore = useUserStore()
 const formRef = ref(null)
 const loading = ref(false)
 const videoRef = ref(null)
+
+// ===== 可选动态背景列表 =====
+const backgrounds = [
+  { name: '鸡你太美', src: '/heizi.webm' },
+  { name: 'Spring', src: '/login-bg.webm' },
+  { name: '2024冬季', src: '/winter.webm' },
+  { name: '2024冬季2', src: '/winter2.webm' },
+  { name: '少女', src: '/login-bg2.webm' },
+]
+
+const BG_KEY = 'ts-login-bg'
+
+const savedSrc = localStorage.getItem(BG_KEY)
+const currentBg = ref(
+  backgrounds.find(b => b.src === savedSrc) || backgrounds[0]
+)
+
+// 弹跳 GIF 仅在选择"鸡你太美"背景时显示
+const showGif = computed(() => currentBg.value.name === '鸡你太美')
+
+function switchBg(bg) {
+  if (currentBg.value.src === bg.src) return
+  currentBg.value = bg
+  localStorage.setItem(BG_KEY, bg.src)
+  // :key 变化后 video 重新挂载，canplay 事件会自动触发 tryPlay
+}
 
 // 显式设置 muted 并尝试播放（解决浏览器自动播放策略阻止问题）
 function tryPlay() {
@@ -295,6 +350,32 @@ async function handleLogin() {
   transform: translateY(1px);
 }
 
+/* 账号提示条：浅蓝底、虚线描边，低调不抢表单焦点 */
+.login-tip {
+  margin-top: 16px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(106, 120, 232, 0.08);
+  border: 1px dashed rgba(106, 120, 232, 0.35);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #5b6472;
+  line-height: 1.6;
+}
+
+.tip-icon {
+  color: #6677e8;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.login-tip b {
+  color: #6677e8;
+  font-weight: 600;
+}
+
 /* 右下角淡灰色版本号 */
 .login-footer {
   margin-top: 28px;
@@ -305,5 +386,75 @@ async function handleLogin() {
   font-size: 11px;
   color: rgba(107, 114, 128, 0.5);
   letter-spacing: 0.5px;
+}
+
+/* ==================== 背景选择器（左下角浮动） ==================== */
+.bg-selector {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bg-selector-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.bg-thumb {
+  position: relative;
+  width: 56px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+
+.bg-thumb-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.bg-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bg-thumb.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.bg-thumb-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 10px;
+  color: #fff;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

@@ -20,3 +20,14 @@ export async function getHolidays() {
 export function saveHolidays(data) {
   return request.put('/admin/config', { holidays: data })
 }
+
+/** 获取下班时间（HH:mm）— 公开接口，所有登录用户可访问 */
+export async function getOffWorkTime() {
+  const res = await request.get('/config/off-work-time')
+  return res.data || '17:00'
+}
+
+/** 更新下班时间（HH:mm）— 仅管理员 */
+export function saveOffWorkTime(offWorkTime) {
+  return request.put('/admin/config/off-work-time', { offWorkTime })
+}

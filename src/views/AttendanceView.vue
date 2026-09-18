@@ -318,8 +318,8 @@
     <!-- ==================== 下班倒计时悬浮球（右下角，可拖拽） ==================== -->
     <el-tooltip
       :content="offWork.passed
-        ? '理论下班时间已过，可是你还在加班... 默认下班时间 17:30'
-        : `距离下班：理论 ${offWork.h}h${offWork.m}m，实际多久你别管🙂 · 默认下班 17:30`"
+        ? `理论下班时间已过，可是你还在加班... 今日下班时间 ${offWorkTime}`
+        : `距离下班（${offWorkTime}）：理论 ${offWork.h}h${offWork.m}m，实际多久你别管🙂`"
       placement="top"
       effect="dark"
       :disabled="ballDragging"
@@ -354,7 +354,7 @@ import {
 import { useUserStore } from '../stores/user'
 import { getMonthTimesheets, getYearTimesheets, saveTimesheet, batchSaveTimesheet, deleteTimesheet, batchDeleteTimesheet } from '../api/timesheet'
 import { exportTimesheet } from '../api/report'
-import { getHolidays } from '../api/config'
+import { getHolidays, getOffWorkTime } from '../api/config'
 import AppSidebar from '../components/AppSidebar.vue'
 import { ACHIEVEMENTS, loadUnlocked, unlockAchievement } from '../utils/achievements'
 
@@ -1162,10 +1162,24 @@ function checkAchievements({ fill = false, batch = false } = {}) {
 }
 
 // ===== 下班倒计时悬浮球（右下角，可拖拽） =====
-const OFF_WORK_HOUR = 17
-const OFF_WORK_MINUTE = 30
+// 下班时间从后台读取（管理员在系统配置页修改），默认 17:00
+const offWorkTime = ref('17:00')
 const offWork = ref({ h: 0, m: 0, passed: false })
 let offWorkTimer = null
+
+/** 解析 HH:mm 为 [小时, 分钟]，非法格式回退 17:00 */
+function parseOffWorkTime(v) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(v || '').trim())
+  return m ? [Number(m[1]), Number(m[2])] : [17, 0]
+}
+
+/** 拉取后台配置的下班时间（失败静默回退默认值） */
+async function loadOffWorkTime() {
+  try {
+    const t = await getOffWorkTime()
+    if (t) offWorkTime.value = t
+  } catch { /* 接口异常时沿用当前值（默认 17:00） */ }
+}
 
 // 悬浮球拖拽状态与位置（localStorage 持久化）
 const BALL_POS_KEY = 'ts_offwork_ball_pos'
@@ -1220,9 +1234,10 @@ function onBallMouseUp() {
 }
 
 function updateOffWork() {
+  const [h, m] = parseOffWorkTime(offWorkTime.value)
   const now = new Date()
   const end = new Date(now)
-  end.setHours(OFF_WORK_HOUR, OFF_WORK_MINUTE, 0, 0)
+  end.setHours(h, m, 0, 0)
   const diffSec = Math.floor((end - now) / 1000)
   if (diffSec <= 0) {
     offWork.value = { h: 0, m: 0, passed: true }
@@ -1248,7 +1263,8 @@ onMounted(async () => {
   loadFormForSelection()
   // Esc 键退出多选模式
   window.addEventListener('keydown', onKeyDown)
-  // 下班倒计时：立即更新 + 每 30 秒刷新（分钟级精度）
+  // 下班倒计时：先取后台配置的下班时间，再立即更新 + 每 30 秒刷新（分钟级精度）
+  await loadOffWorkTime()
   updateOffWork()
   offWorkTimer = setInterval(updateOffWork, 30000)
 })

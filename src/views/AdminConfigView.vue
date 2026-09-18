@@ -135,6 +135,33 @@
           </el-card>
         </div>
 
+        <!-- 下班时间设置 -->
+        <el-card shadow="hover" class="config-card offwork-card">
+          <template #header>
+            <div class="card-header">
+              <el-icon :size="20" color="#10b981"><Clock /></el-icon>
+              <span>下班时间设置</span>
+              <el-tag size="small" type="success" effect="plain">全员生效</el-tag>
+            </div>
+          </template>
+          <div class="offwork-row">
+            <el-time-picker
+              v-model="offWorkDate"
+              format="HH:mm"
+              placeholder="下班时间"
+              :clearable="false"
+              style="width: 140px"
+            />
+            <el-button type="primary" :loading="savingOffWork" @click="handleSaveOffWork">
+              <el-icon><Check /></el-icon> 保存下班时间
+            </el-button>
+            <span class="offwork-tip">
+              当前：<strong class="offwork-current">{{ offWorkTimeStr }}</strong>，
+              控制所有用户右下角「下班倒计时」悬浮球的倒计时基准
+            </span>
+          </div>
+        </el-card>
+
         <!-- 配置说明 -->
         <div class="config-info">
           <h3>配置说明</h3>
@@ -197,12 +224,53 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Setting, Plus, Edit, Delete, Sunny, Switch, Refresh, Check
+  Setting, Plus, Edit, Delete, Sunny, Switch, Refresh, Check, Clock
 } from '@element-plus/icons-vue'
 import AppSidebar from '../components/AppSidebar.vue'
-import { getHolidays, saveHolidays } from '../api/config'
+import { getHolidays, saveHolidays, getOffWorkTime, saveOffWorkTime } from '../api/config'
 
 const saving = ref(false)
+
+// ===== 下班时间设置 =====
+const offWorkTimeStr = ref('17:00')
+const offWorkDate = ref(new Date())
+const savingOffWork = ref(false)
+
+function timeStrToDate(v) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(v || '').trim())
+  const d = new Date()
+  if (m) { d.setHours(Number(m[1]), Number(m[2]), 0, 0) } else { d.setHours(17, 0, 0, 0) }
+  return d
+}
+
+function dateToTimeStr(d) {
+  const p = n => String(n).padStart(2, '0')
+  return `${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+async function loadOffWorkTime() {
+  try {
+    const t = await getOffWorkTime()
+    offWorkTimeStr.value = t || '17:00'
+    offWorkDate.value = timeStrToDate(offWorkTimeStr.value)
+  } catch (err) {
+    console.error('加载下班时间失败:', err)
+  }
+}
+
+async function handleSaveOffWork() {
+  const v = dateToTimeStr(offWorkDate.value)
+  savingOffWork.value = true
+  try {
+    await saveOffWorkTime(v)
+    offWorkTimeStr.value = v
+    ElMessage.success(`下班时间已更新为 ${v}，全员悬浮球即时生效`)
+  } catch (err) {
+    console.error('保存下班时间失败:', err)
+  } finally {
+    savingOffWork.value = false
+  }
+}
 
 const allItems = ref([])
 const holidayList = computed(() => allItems.value.filter(h => h.type === 'holiday'))
@@ -315,6 +383,7 @@ async function handleSave() {
 
 onMounted(() => {
   loadAll()
+  loadOffWorkTime()
 })
 </script>
 
@@ -419,6 +488,29 @@ onMounted(() => {
 
 .shift-card {
   border-left: 3px solid #6366f1;
+}
+
+/* 下班时间设置卡片 */
+.offwork-card {
+  margin-bottom: 20px;
+  border-left: 3px solid #10b981;
+}
+
+.offwork-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.offwork-tip {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.offwork-current {
+  color: #10b981;
+  font-size: 15px;
 }
 
 .card-header {

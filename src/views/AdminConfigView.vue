@@ -153,7 +153,7 @@
               style="width: 140px"
             />
             <el-button type="primary" :loading="savingOffWork" @click="handleSaveOffWork">
-              <el-icon><Check /></el-icon> 保存下班时间
+              <el-icon><Check /></el-icon> 更新下班时间
             </el-button>
             <span class="offwork-tip">
               当前：<strong class="offwork-current">{{ offWorkTimeStr }}</strong>，

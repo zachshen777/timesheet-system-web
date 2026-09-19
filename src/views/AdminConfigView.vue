@@ -227,7 +227,9 @@ import {
   Setting, Plus, Edit, Delete, Sunny, Switch, Refresh, Check, Clock
 } from '@element-plus/icons-vue'
 import AppSidebar from '../components/AppSidebar.vue'
-import { getHolidays, saveHolidays, getOffWorkTime, saveOffWorkTime } from '../api/config'
+import {
+  getHolidays, saveHolidays, getOffWorkTime, saveOffWorkTime
+} from '../api/config'
 
 const saving = ref(false)
 

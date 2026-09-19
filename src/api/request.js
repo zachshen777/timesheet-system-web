@@ -27,9 +27,7 @@ request.interceptors.response.use(
       if (error.config?.skipAuthRedirect) {
         return Promise.reject(error)
       }
-      // 清除登录状态，防止重定向循环
-      sessionStorage.removeItem('isLogin')
-      sessionStorage.removeItem('role')
+      // 登录态只存在于 Pinia（由 /auth/me 恢复），这里整页跳转会直接丢弃内存状态
       ElMessage.error('未登录或登录已过期，请重新登录')
       window.location.href = '/login'
     } else {

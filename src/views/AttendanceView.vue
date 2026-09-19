@@ -345,23 +345,16 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Timer, ArrowLeft, ArrowRight, ArrowDown, ArrowUp, CopyDocument, Download,
   Delete, Close, Loading, QuestionFilled, Check, Select
 } from '@element-plus/icons-vue'
-import { useUserStore } from '../stores/user'
 import { getMonthTimesheets, getYearTimesheets, saveTimesheet, batchSaveTimesheet, deleteTimesheet, batchDeleteTimesheet } from '../api/timesheet'
 import { exportTimesheet } from '../api/report'
 import { getHolidays, getOffWorkTime } from '../api/config'
 import AppSidebar from '../components/AppSidebar.vue'
 import { ACHIEVEMENTS, loadUnlocked, unlockAchievement } from '../utils/achievements'
-
-const userStore = useUserStore()
-
-const router = useRouter()
-const route = useRoute()
 
 // ===== 视图模式 =====
 const viewMode = ref('month')
@@ -1251,10 +1244,7 @@ function updateOffWork() {
 }
 
 onMounted(async () => {
-  if (!userStore.userInfo) {
-    await userStore.fetchUserInfo()
-    if (!userStore.isLogin) { router.push('/login'); return }
-  }
+  // 登录态与用户信息统一由路由守卫恢复，这里只加载业务数据
   await loadAll()
   // 自动选中今天，加载今日工时到填报表单
   const todayStr = formatDate(new Date())

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/user'
 
 const routes = [
   {
@@ -52,6 +53,12 @@ const routes = [
     name: 'AdminDept',
     component: () => import('../views/DeptManageView.vue'),
     meta: { title: '部门管理', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/job',
+    name: 'AdminJob',
+    component: () => import('../views/JobManageView.vue'),
+    meta: { title: '定时任务', requiresAuth: true, requiresAdmin: true }
   }
 ]
 
@@ -61,21 +68,30 @@ const router = createRouter({
 })
 
 // 全局前置守卫
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   document.title = to.meta.title ? `${to.meta.title} - timesheet-system` : 'timesheet-system'
-  if (to.meta.requiresAuth) {
-    const isLoggedIn = sessionStorage.getItem('isLogin') === 'true'
-    if (!isLoggedIn) {
-      return '/login'
-    }
+
+  if (!to.meta.requiresAuth) return true
+
+  const userStore = useUserStore()
+
+  // F5 刷新会重建 Pinia，store 变回空状态，必须先从后端恢复用户信息。
+  // 这一步放在守卫里统一处理（而不是散落在某个页面里），
+  // 否则只有工时填报页能恢复角色，刷新报表页等其它页面时
+  // 侧边栏的 isAdmin 会一直是 false，「系统设置」菜单就会消失。
+  if (!userStore.userInfo) {
+    await userStore.fetchUserInfo()
   }
+
+  if (!userStore.isLogin) {
+    return { path: '/login', replace: true }
+  }
+
   // 管理员页面守卫
-  if (to.meta.requiresAdmin) {
-    const role = sessionStorage.getItem('role')
-    if (role !== 'ADMIN') {
-      return '/attendance'
-    }
+  if (to.meta.requiresAdmin && !userStore.isAdmin) {
+    return { path: '/attendance', replace: true }
   }
+
   return true
 })
 

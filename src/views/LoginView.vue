@@ -187,8 +187,6 @@ async function handleLogin() {
     loading.value = true
     try {
       await userStore.login(form.username, form.password)
-      sessionStorage.setItem('isLogin', 'true')
-      sessionStorage.setItem('role', userStore.userInfo?.role || 'EMPLOYEE')
       ElMessage.success('登录成功')
       router.push('/attendance')
     } catch (err) {

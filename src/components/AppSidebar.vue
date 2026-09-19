@@ -90,7 +90,7 @@ import { getDeptOptions } from '../api/dept'
 import { isDarkThemeUnlocked, loadTheme, toggleTheme } from '../utils/theme'
 import {
   Document, PieChart, UserFilled, Setting, SwitchButton,
-  Postcard, OfficeBuilding, Phone, Search
+  Postcard, OfficeBuilding, Phone, Search, Timer
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -122,6 +122,7 @@ const adminNavItems = [
   { label: '员工管理', icon: UserFilled, path: '/admin/employees' },
   { label: '部门管理', icon: OfficeBuilding, path: '/admin/dept' },
   { label: '历史查询', icon: Search, path: '/admin/history-query' },
+  { label: '定时任务', icon: Timer, path: '/admin/job' },
   { label: '系统配置', icon: Setting, path: '/admin/config' },
 ]
 

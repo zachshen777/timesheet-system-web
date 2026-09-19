@@ -13,8 +13,6 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = res.data
     isLogin.value = true
     isAdmin.value = res.data?.role === 'ADMIN'
-    // 持久化角色信息供路由守卫使用
-    sessionStorage.setItem('role', res.data?.role || 'EMPLOYEE')
     return res
   }
 
@@ -26,24 +24,25 @@ export const useUserStore = defineStore('user', () => {
       userInfo.value = null
       isLogin.value = false
       isAdmin.value = false
-      sessionStorage.removeItem('role')
     }
   }
 
-  /** 从后端恢复登录状态 */
+  /**
+   * 从后端恢复用户信息。
+   * 这是登录态的唯一真相来源：F5 刷新后 Pinia 会重置，
+   * 由路由守卫调用它来恢复，页面里不要再各自判断登录态。
+   */
   async function fetchUserInfo() {
     try {
       const res = await getCurrentUser()
       userInfo.value = res.data
       isLogin.value = true
       isAdmin.value = res.data?.role === 'ADMIN'
-      sessionStorage.setItem('role', res.data?.role || 'EMPLOYEE')
       return res.data
     } catch {
       userInfo.value = null
       isLogin.value = false
       isAdmin.value = false
-      sessionStorage.removeItem('role')
       return null
     }
   }

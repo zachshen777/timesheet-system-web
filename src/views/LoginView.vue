@@ -1,26 +1,28 @@
 <template>
-  <div class="login-container">
-    <!-- 背景视频（氛围装饰，不抢表单焦点） -->
-    <video
-      ref="videoRef"
-      class="login-video"
-      loop
-      playsinline
-      preload="auto"
-      :key="currentBg.src"
-      @canplay="tryPlay"
-    >
-      <source :src="currentBg.src" type="video/webm" />
-    </video>
-    <!-- 半透明遮罩，压暗视频、增强卡片对比 -->
-    <div class="login-overlay"></div>
+  <div class="login-container" :class="{ 'is-formal': isFormal }">
+    <!-- 背景视频（氛围装饰，不抢表单焦点）：仅轻松版显示 -->
+    <template v-if="!isFormal">
+      <video
+        ref="videoRef"
+        class="login-video"
+        loop
+        playsinline
+        preload="auto"
+        :key="currentBg.src"
+        @canplay="tryPlay"
+      >
+        <source :src="currentBg.src" type="video/webm" />
+      </video>
+      <!-- 半透明遮罩，压暗视频、增强卡片对比 -->
+      <div class="login-overlay"></div>
+    </template>
 
-    <div class="login-card">
+    <div class="login-card" :class="{ 'is-formal': isFormal }">
       <div class="login-header">
         <div class="logo-circle">
           <el-icon :size="26" color="#fff"><Clock /></el-icon>
         </div>
-        <h1>工时填报系统牛马专用</h1>
+        <h1>{{ cardTitle }}</h1>
         <p class="login-subtitle">TIMESHEET SYSTEM</p>
       </div>
 
@@ -46,7 +48,7 @@
             v-model="form.password"
             type="password"
             size="large"
-            placeholder="请输入精神内耗密码"
+            :placeholder="passwordPlaceholder"
             :prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
@@ -61,7 +63,7 @@
             :loading="loading"
             @click="handleLogin"
           >
-            打工上岗
+            {{ submitText }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -76,15 +78,30 @@
       </div>
 
       <div class="login-footer">
-        <span class="version">本系统仅供搬砖记录，不保证准时下班</span>
+        <span class="version">{{ footerText }}</span>
       </div>
     </div>
 
-    <!-- 背景选择器（左下角浮动） -->
-    <div class="bg-selector">
+    <!-- 皮肤切换（右上角浮动）：轻松版 / 正式版 -->
+    <div class="mode-switch" :class="{ 'is-formal': isFormal }">
+      <span class="mode-switch-label">皮肤</span>
+      <button
+        v-for="m in modes"
+        :key="m.value"
+        type="button"
+        class="mode-btn"
+        :class="{ active: mode === m.value }"
+        @click="setMode(m.value)"
+      >
+        {{ m.label }}
+      </button>
+    </div>
+
+    <!-- 背景选择器（左下角浮动）：仅轻松版显示 -->
+    <div v-if="!isFormal" class="bg-selector">
       <span class="bg-selector-label">背景</span>
       <div
-        v-for="(bg, i) in backgrounds"
+        v-for="bg in backgrounds"
         :key="bg.src"
         class="bg-thumb"
         :class="{ active: currentBg.src === bg.src }"
@@ -95,7 +112,7 @@
       </div>
     </div>
 
-    <!-- 弹跳 GIF：仅在选择"鸡你太美"背景时显示 -->
+    <!-- 弹跳 GIF：仅轻松版 + 选择"鸡你太美"背景时显示 -->
     <BouncingGif v-if="showGif" />
   </div>
 </template>
@@ -115,7 +132,35 @@ const formRef = ref(null)
 const loading = ref(false)
 const videoRef = ref(null)
 
-// ===== 可选动态背景列表 =====
+// ===== 皮肤模式：formal（正式版，默认）/ fun（轻松版） =====
+const MODE_KEY = 'ts-login-mode'
+const modes = [
+  { value: 'formal', label: '正式版' },
+  { value: 'fun', label: '轻松版' }
+]
+const mode = ref(localStorage.getItem(MODE_KEY) === 'fun' ? 'fun' : 'formal')
+const isFormal = computed(() => mode.value === 'formal')
+
+const cardTitle = computed(() =>
+  isFormal.value ? '工时填报系统' : '工时填报系统牛马专用'
+)
+const passwordPlaceholder = computed(() =>
+  isFormal.value ? '请输入密码' : '请输入精神内耗密码'
+)
+const submitText = computed(() => (isFormal.value ? '登 录' : '打工上岗'))
+const footerText = computed(() =>
+  isFormal.value ? '工时填报系统' : '本系统仅供搬砖记录，不保证准时下班'
+)
+
+function setMode(m) {
+  if (mode.value === m) return
+  mode.value = m
+  localStorage.setItem(MODE_KEY, m)
+  // 从正式版切回轻松版：视频元素重新挂载，等 DOM 就绪后拉起播放
+  if (m === 'fun') nextTick(() => tryPlay())
+}
+
+// ===== 可选动态背景列表（仅轻松版使用） =====
 const backgrounds = [
   { name: '鸡你太美', src: '/heizi.webm' },
   { name: 'Spring', src: '/login-bg.webm' },
@@ -131,8 +176,8 @@ const currentBg = ref(
   backgrounds.find(b => b.src === savedSrc) || backgrounds[0]
 )
 
-// 弹跳 GIF 仅在选择"鸡你太美"背景时显示
-const showGif = computed(() => currentBg.value.name === '鸡你太美')
+// 弹跳 GIF 仅在选择"鸡你太美"背景时显示（正式版不显示）
+const showGif = computed(() => !isFormal.value && currentBg.value.name === '鸡你太美')
 
 function switchBg(bg) {
   if (currentBg.value.src === bg.src) return
@@ -175,10 +220,16 @@ const form = reactive({
   password: ''
 })
 
-const rules = {
+const rules = computed(() => ({
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入精神内耗密码', trigger: 'blur' }]
-}
+  password: [
+    {
+      required: true,
+      message: isFormal.value ? '请输入密码' : '请输入精神内耗密码',
+      trigger: 'blur'
+    }
+  ]
+}))
 
 async function handleLogin() {
   if (!formRef.value) return
@@ -191,7 +242,9 @@ async function handleLogin() {
       router.push('/attendance')
     } catch (err) {
       // 登录失败：自定义提示（拦截器已跳过自动提示）
-      ElMessage.error('🚫上岗失败，工号 / 密码不对，禁止上岗搬砖')
+      ElMessage.error(
+        isFormal.value ? '用户名或密码错误，请重新输入' : '🚫上岗失败，工号 / 密码不对，禁止上岗搬砖'
+      )
       console.error('登录失败:', err)
     } finally {
       loading.value = false
@@ -211,6 +264,15 @@ async function handleLogin() {
   /* 兜底蓝紫色渐变，防止视频/图片未加载时白屏 */
   background: linear-gradient(135deg, #4f63e8 0%, #7a5ce6 100%);
   padding: 20px;
+  transition: background 0.4s ease;
+}
+
+/* 正式版：干净的浅色底，去掉一切动态背景 */
+.login-container.is-formal {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(148, 168, 242, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 82% 84%, rgba(170, 156, 236, 0.16) 0%, transparent 55%),
+    linear-gradient(160deg, #f8fafc 0%, #eef1f7 100%);
 }
 
 /* 背景视频：铺满容器，作为氛围装饰 */
@@ -255,6 +317,19 @@ async function handleLogin() {
     0 8px 32px rgba(25, 30, 55, 0.18),
     0 2px 8px rgba(25, 30, 55, 0.08);
   padding: 40px;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 正式版：实心白卡 + 收敛的阴影，去掉毛玻璃 */
+.login-card.is-formal {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(31, 41, 55, 0.08);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 30px rgba(31, 41, 55, 0.08),
+    0 2px 8px rgba(31, 41, 55, 0.04);
 }
 
 .login-header {
@@ -384,6 +459,82 @@ async function handleLogin() {
   font-size: 11px;
   color: rgba(107, 114, 128, 0.5);
   letter-spacing: 0.5px;
+}
+
+/* ==================== 皮肤切换（右上角浮动） ==================== */
+.mode-switch {
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+
+.mode-switch.is-formal {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(31, 41, 55, 0.1);
+  box-shadow: 0 2px 10px rgba(31, 41, 55, 0.06);
+}
+
+.mode-switch-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+  padding: 0 4px 0 6px;
+  white-space: nowrap;
+}
+
+.mode-switch.is-formal .mode-switch-label {
+  color: #9aa1ae;
+}
+
+.mode-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.mode-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mode-btn.active {
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+}
+
+.mode-switch.is-formal .mode-btn {
+  color: #6b7280;
+}
+
+.mode-switch.is-formal .mode-btn:hover {
+  color: #1f2937;
+  background: rgba(31, 41, 55, 0.05);
+}
+
+.mode-switch.is-formal .mode-btn.active {
+  color: #fff;
+  background: linear-gradient(135deg, #6677e8 0%, #8a6ee6 100%);
+  box-shadow: 0 2px 8px rgba(102, 119, 232, 0.3);
 }
 
 /* ==================== 背景选择器（左下角浮动） ==================== */

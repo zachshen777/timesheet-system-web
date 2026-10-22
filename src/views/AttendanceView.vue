@@ -76,6 +76,7 @@
                   @click="onCellClick($event, cell)"
                 >
                   <span class="cell-num">{{ cell.day || '' }}</span>
+                  <span v-if="cell.leaveType" class="cell-leave" :title="leaveLabel(cell.leaveType) + '（请假）'">{{ leaveLabel(cell.leaveType) }}</span>
                   <span v-if="cell.day && (cell.hours || cell.overtime)" class="cell-info">
                     <span v-if="cell.hours" class="cell-hours">{{ cell.hours }}h</span>
                     <span v-if="cell.overtime" class="cell-overtime">+{{ cell.overtime }}h</span>
@@ -159,6 +160,18 @@
                   </div>
                 </div>
 
+                <div class="ts-block">
+                  <div class="ts-block-label">请假类型<span class="ts-block-optional">选填</span></div>
+                  <el-select
+                    v-model="tsForm.leaveType"
+                    placeholder="未请假"
+                    clearable
+                    class="ts-leave-select"
+                    @change="onLeaveTypeChange"
+                  >
+                    <el-option v-for="t in LEAVE_TYPES" :key="t.value" :label="t.label" :value="t.value" />
+                  </el-select>
+                </div>
                 <div class="ts-block">
                   <div class="ts-block-label">项目名称</div>
                   <el-input v-model="tsForm.project" placeholder="例如：XX项目 / 日常维护" />
@@ -480,6 +493,7 @@ function buildWeekCells() {
       overtime: ts?.overtimeHours ? formatHours(ts.overtimeHours) : '',
       project: ts?.project || '',
       task: ts?.task || '',
+      leaveType: ts?.leaveType || '',
       isToday: dateStr === todayStrLocal,
       isSelected: selectedDates.value.includes(dateStr)
     }
@@ -520,6 +534,7 @@ function buildMonthCells() {
       overtime: ts?.overtimeHours ? formatHours(ts.overtimeHours) : '',
       project: ts?.project || '',
       task: ts?.task || '',
+      leaveType: ts?.leaveType || '',
       isToday: dateStr === todayStrLocal,
       isSelected: selectedDates.value.includes(dateStr)
     })
@@ -542,6 +557,7 @@ function cellClass(cell) {
     'has-day',
     cell.hasTimesheet ? (cell.overtime ? 'st-overtime' : 'st-filled') : 'st-pending',
     cell.dayType ? 'daytype-' + cell.dayType : '',
+    cell.leaveType ? 'has-leave leave-' + cell.leaveType.toLowerCase() : '',
     cell.isToday ? 'is-today' : '',
     cell.isSelected ? 'is-selected' : ''
   ]
@@ -551,13 +567,15 @@ function cellTooltip(cell) {
   if (!cell.day) return ''
   const [, m, d] = cell.dateStr.split('-')
   const parts = [`${parseInt(m)}\u6708${parseInt(d)}\u65e5`]
+  if (cell.leaveType) parts.push(leaveLabel(cell.leaveType))
   if (cell.hours) {
     let h = cell.hours + 'h'
     if (cell.overtime) h += '+' + cell.overtime + 'h'
     parts.push(h)
   } else if (cell.overtime) {
     parts.push('\u52a0\u73ed' + cell.overtime + 'h')
-  } else {
+  } else if (!cell.leaveType) {
+    // 请假且 0 工时属于正常状态，不再提示「待填报」
     parts.push('\u5f85\u586b\u62a5')
   }
   if (cell.project) parts.push('\u9879\u76ee\uff1a' + cell.project)
@@ -648,14 +666,15 @@ function loadFormForSelection() {
         project: ts.project || '',
         task: ts.task || '',
         remark: ts.remark || '',
+        leaveType: ts.leaveType || '',
         workHours: ts.workHours ?? 8,
         overtimeHours: ts.overtimeHours ?? 0
       }
     } else {
-      tsForm.value = { project: '', task: '', remark: '', workHours: 8, overtimeHours: 0 }
+      tsForm.value = { project: '', task: '', remark: '', leaveType: '', workHours: 8, overtimeHours: 0 }
     }
   } else if (selectedDates.value.length > 1) {
-    tsForm.value = { project: '', task: '', remark: '', workHours: 8, overtimeHours: 0 }
+    tsForm.value = { project: '', task: '', remark: '', leaveType: '', workHours: 8, overtimeHours: 0 }
   }
 }
 
@@ -754,6 +773,8 @@ const monthStats = computed(() => {
     if (hasData) {
       standard += Number(ts.workHours || 0)
       overtime += Number(ts.overtimeHours || 0)
+    } else if (ts && ts.leaveType) {
+      // 已请假的日子算处理过了，不再计入「工作日待填报」
     } else {
       // 用 getDayType 统一判断：工作日/调班日需填报，休息日/法定节假日不需要
       const dt = getDayType(dateStr)
@@ -763,8 +784,27 @@ const monthStats = computed(() => {
   return { standard, overtime, pending }
 })
 
+// ===== 请假类型（选填，落库字段 leave_type） =====
+const LEAVE_TYPES = [
+  { value: 'SICK', label: '病假' },
+  { value: 'PERSONAL', label: '事假' },
+  { value: 'ANNUAL', label: '年假' }
+]
+const LEAVE_LABEL_MAP = LEAVE_TYPES.reduce((m, t) => { m[t.value] = t.label; return m }, {})
+function leaveLabel(code) {
+  return LEAVE_LABEL_MAP[code] || ''
+}
+
+// 选中请假时自动把标准工时置 0（请假日当天通常不出勤；半天假可手动改回 4）
+function onLeaveTypeChange(v) {
+  if (v && Number(tsForm.value.workHours || 0) > 0) {
+    tsForm.value.workHours = 0
+    ElMessage.info(`已按「${leaveLabel(v)}」将标准工时置 0，半天假可手动改回`)
+  }
+}
+
 // ===== 工时表单 =====
-const tsForm = ref({ project: '', task: '', remark: '', workHours: 8, overtimeHours: 0 })
+const tsForm = ref({ project: '', task: '', remark: '', leaveType: '', workHours: 8, overtimeHours: 0 })
 const saveLoading = ref(false)
 
 async function handleSave() {
@@ -779,6 +819,7 @@ async function handleSave() {
         project: tsForm.value.project || null,
         task: tsForm.value.task || null,
         remark: tsForm.value.remark || null,
+        leaveType: tsForm.value.leaveType || null,
         workHours: tsForm.value.workHours ?? null,
         overtimeHours: tsForm.value.overtimeHours ?? null,
         status: 'SUBMITTED'
@@ -790,6 +831,7 @@ async function handleSave() {
         project: tsForm.value.project || null,
         task: tsForm.value.task || null,
         remark: tsForm.value.remark || null,
+        leaveType: tsForm.value.leaveType || null,
         workHours: tsForm.value.workHours ?? null,
         overtimeHours: tsForm.value.overtimeHours ?? null,
         status: 'SUBMITTED'
@@ -876,13 +918,14 @@ function copyLastDay() {
   cur.setDate(cur.getDate() - 1)
   const prev = formatDate(cur)
   const prevTs = timesheetMap.value[prev]
-  if (!prevTs || !(prevTs.project || prevTs.task)) {
+  if (!prevTs || !(prevTs.project || prevTs.task || prevTs.leaveType)) {
     ElMessage.info(`前一天（${prev}）无记录可复制`)
     return
   }
   tsForm.value.project = prevTs.project || ''
   tsForm.value.task = prevTs.task || ''
   tsForm.value.remark = prevTs.remark || ''
+  tsForm.value.leaveType = prevTs.leaveType || ''
   tsForm.value.workHours = prevTs.workHours ?? 8
   tsForm.value.overtimeHours = prevTs.overtimeHours ?? 0
   ElMessage.success(`已从 ${prev} 复制工时内容`)
@@ -896,7 +939,7 @@ function startCopyMode() {
   }
   const dateStr = selectedDates.value[0]
   const ts = timesheetMap.value[dateStr]
-  if (!ts || !(ts.project || ts.task || ts.workHours)) {
+  if (!ts || !(ts.project || ts.task || ts.workHours || ts.leaveType)) {
     ElMessage.info('所选日期无工时记录可复制')
     return
   }
@@ -922,6 +965,7 @@ async function handlePasteTo(targetDate) {
       project: ts.project || null,
       task: ts.task || null,
       remark: ts.remark || null,
+      leaveType: ts.leaveType || null,
       workHours: ts.workHours ?? null,
       overtimeHours: ts.overtimeHours ?? null,
       status: 'SUBMITTED'
@@ -1992,6 +2036,38 @@ onUnmounted(() => {
   font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', 'DIN Alternate', 'Roboto', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
+
+/* ===== 请假类型标签（日历格子内，日期数字正下方） ===== */
+.cell-leave {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  padding: 0 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 1;
+}
+.cal-cell.leave-sick .cell-leave { color: #c2410c; background: #ffedd5; }
+.cal-cell.leave-personal .cell-leave { color: #1d4ed8; background: #dbeafe; }
+.cal-cell.leave-annual .cell-leave { color: #6d28d9; background: #ede9fe; }
+
+/* 暗夜主题：改半透明底 + 亮色字，避免深色背景上的深色块 */
+html[data-theme='dark'] .cal-cell.leave-sick .cell-leave { color: #fdba74; background: rgba(251, 146, 60, 0.18); }
+html[data-theme='dark'] .cal-cell.leave-personal .cell-leave { color: #93c5fd; background: rgba(96, 165, 250, 0.18); }
+html[data-theme='dark'] .cal-cell.leave-annual .cell-leave { color: #c4b5fd; background: rgba(167, 139, 250, 0.18); }
+
+/* 填报面板：请假类型选择器 */
+.ts-block-optional {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #9ca3af);
+}
+.ts-leave-select { width: 100%; }
 
 /* 点击动画 */
 .cell-just-clicked {

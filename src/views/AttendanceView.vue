@@ -208,7 +208,7 @@
                   </div>
                   <div class="ts-stat">
                     <div class="ts-stat-value"><span class="ts-stat-num">{{ monthStats.overtime }}</span><span class="ts-stat-unit">h</span></div>
-                    <div class="ts-stat-label">累计加班</div>
+                    <div class="ts-stat-label" title="填报的加班时长 + 周六/周日及法定节假日上班的工时（调班日不计）">累计加班</div>
                   </div>
                   <div class="ts-stat stat-pending">
                     <div class="ts-stat-value"><span class="ts-stat-num">{{ monthStats.pending }}</span><span class="ts-stat-unit">天</span></div>
@@ -447,6 +447,14 @@ function colTypeClass(colIndex) {
 function dayTypeLabel(type) {
   const labels = { workday: '工作日', saturday: '休息日', sunday: '休息日', holiday: '法定节假日', shift: '调班日' }
   return labels[type] || ''
+}
+
+/**
+ * 累计加班口径：周六/周日/法定节假日上班，当天填报的工时全部计入加班
+ * 调班日（周末被调为工作日）按正常工作日处理，不重复计入
+ */
+function isOvertimeDayType(type) {
+  return type === 'saturday' || type === 'sunday' || type === 'holiday'
 }
 
 const todayStr = computed(() => formatDate(new Date()))
@@ -758,6 +766,7 @@ function nextMonth() {
 }
 
 // ===== 月度统计 =====
+// 累计加班口径：填报的加班时长 + 休息日/法定节假日当天上班的工时（调班日算正常工作日，不计入）
 const monthStats = computed(() => {
   let standard = 0
   let overtime = 0
@@ -771,8 +780,10 @@ const monthStats = computed(() => {
     // 只有实际填写了工时的记录才算"已填报"，空记录（删除后残留）不算
     const hasData = ts && (Number(ts.workHours || 0) > 0 || Number(ts.overtimeHours || 0) > 0)
     if (hasData) {
-      standard += Number(ts.workHours || 0)
+      const wh = Number(ts.workHours || 0)
+      standard += wh
       overtime += Number(ts.overtimeHours || 0)
+      if (isOvertimeDayType(getDayType(dateStr))) overtime += wh
     } else if (ts && ts.leaveType) {
       // 已请假的日子算处理过了，不再计入「工作日待填报」
     } else {
@@ -781,7 +792,7 @@ const monthStats = computed(() => {
       if (dt === 'workday' || dt === 'shift') pending++
     }
   }
-  return { standard, overtime, pending }
+  return { standard: formatHours(standard) || 0, overtime: formatHours(overtime) || 0, pending }
 })
 
 // ===== 请假类型（选填，落库字段 leave_type） =====
@@ -1065,16 +1076,17 @@ const monthLabels = computed(() => {
   return result
 })
 
-// 年度统计
+// 年度统计（加班口径同月度：加班时长 + 休息日/法定节假日上班工时）
 const yearStats = computed(() => {
   let days = 0, hours = 0, overtime = 0
-  Object.values(yearTsMap.value).forEach(ts => {
+  Object.entries(yearTsMap.value).forEach(([ds, ts]) => {
     const wh = Number(ts.workHours || 0)
     const oh = Number(ts.overtimeHours || 0)
     if (wh > 0 || oh > 0) {
       days++
       hours += wh
       overtime += oh
+      if (isOvertimeDayType(getDayType(ds))) overtime += wh
     }
   })
   return { days, hours: formatHours(hours) || 0, overtime: formatHours(overtime) || 0 }
